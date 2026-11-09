@@ -26,7 +26,7 @@
 | `LocalAiClient` | 端末内の生成AI。今は `UnavailableLocalAiClient`（使わない）で、ルール抽出だけで動きます（#7） |
 | `DateParser` | 「明日」「来週月曜」「15日まで」「11/20」などを日付に変換します |
 | `TodoDbHelper` | SQLite の `todos` テーブル |
-| `ReminderSpeaker` | TextToSpeech での読み上げ |
+| `ReminderSpeaker` | TextToSpeech での読み上げ。明日が期限の ToDo は、その日はじめて一覧を開いたときに1回だけ読み上げます（通知はしません、#8） |
 | `KeywordStore` | キーワード辞書（SharedPreferences） |
 
 ## ビルド
@@ -48,5 +48,4 @@
 ## 検討中の issue
 
 - #7 ローカルAI（端末内の生成AI）の実装方式
-- #8 期限前日リマインドのタイミング（今はその日はじめて一覧を開いたときに読み上げ）
 - #10 科目・活動タグの候補

@@ -127,7 +127,7 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * 期限前日のリマインド：その日はじめて一覧を開いたときに1回だけ読み上げる。
-     * 決まった時刻に通知するかどうかは issue #8 で検討中。
+     * 決まった時刻の通知はしない（issue #8 で決定。通知の権限を増やさない）。
      */
     private fun remindOncePerDay() {
         val today = LocalDate.now().toString()
