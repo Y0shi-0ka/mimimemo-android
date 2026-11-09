@@ -130,18 +130,18 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         }
         binding.textStatus.setText(label)
         setIndicator(active)
-        if (state != SpeechController.State.STOPPED) {
-            binding.textMode.setText(
-                if (speech.mode == SpeechController.Mode.ON_DEVICE) R.string.mode_on_device
-                else R.string.mode_fallback
-            )
-        }
+        if (state != SpeechController.State.STOPPED) binding.textMode.setText(R.string.mode_on_device)
     }
 
     override fun onFatalError(error: SpeechController.FatalError) {
+        if (error == SpeechController.FatalError.OnDeviceUnavailable) {
+            // 通常の認識には切り替えず、手入力だけで使う（issue #9）
+            showError(getString(R.string.error_on_device_unavailable), R.string.status_manual_only)
+            return
+        }
         showError(
             when (error) {
-                SpeechController.FatalError.NoRecognizer -> getString(R.string.error_no_recognizer)
+                SpeechController.FatalError.OnDeviceUnavailable -> getString(R.string.error_on_device_unavailable)
                 SpeechController.FatalError.PermissionDenied -> getString(R.string.mic_permission_denied)
                 SpeechController.FatalError.ModelDownloading -> getString(R.string.error_model_download)
                 is SpeechController.FatalError.Repeated -> getString(R.string.error_recognizer, error.code)
@@ -251,8 +251,8 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         binding.textAdded.text = getString(R.string.added_count, addedCount)
     }
 
-    private fun showError(message: String) {
-        binding.textStatus.setText(R.string.status_stopped)
+    private fun showError(message: String, statusLabel: Int = R.string.status_stopped) {
+        binding.textStatus.setText(statusLabel)
         binding.textMode.text = message
         setIndicator(false)
     }

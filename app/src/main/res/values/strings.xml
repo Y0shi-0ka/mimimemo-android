@@ -31,13 +31,13 @@
     <string name="status_hearing">聞き取り中（声を検出）</string>
     <string name="status_stopped">停止中</string>
     <string name="mode_on_device">端末内で文字起こししています。音声は保存しません。</string>
-    <string name="mode_fallback">この端末では端末内の音声認識が使えないため、通常の音声認識（オフライン優先）を使っています。端末の設定によっては音声がサーバに送られることがあります。音声は保存しません。</string>
+    <string name="status_manual_only">手入力のみ</string>
     <string name="transcript_hint">ここに文字起こしが表示されます。\nToDoの候補が見つかると確認ダイアログが出ます。</string>
     <string name="added_count">追加したToDo：%1$d 件</string>
     <string name="action_stop">停止</string>
     <string name="manual_hint">文を入力して試す（例：来週月曜までにレポート提出）</string>
     <string name="action_send">送信</string>
-    <string name="error_no_recognizer">この端末では音声認識が使えません。下の欄に文を入力して試せます。</string>
+    <string name="error_on_device_unavailable">この端末では端末内の音声認識が使えません。会話の内容を外部に送らないため、聞き取りは行いません。下の欄に文を入力すると、ToDoの候補を探せます。</string>
     <string name="error_model_download">端末内の日本語音声認識モデルがまだありません。ダウンロードが終わったら、もう一度この画面を開いてください。</string>
     <string name="error_recognizer">音声認識でエラーが続いたため停止しました（コード %1$d）。画面を開き直すと再開します。</string>
 

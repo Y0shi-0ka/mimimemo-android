@@ -11,11 +11,11 @@ import android.speech.RecognizerIntent
 import android.speech.SpeechRecognizer
 
 /**
- * 音声認識で会話を1文ずつ文字にする（機能1）。
+ * 端末内の音声認識で会話を1文ずつ文字にする（機能1）。
  *
- * - Android 12 以降で端末内認識が使えれば createOnDeviceSpeechRecognizer を使う
- * - 使えなければ通常の SpeechRecognizer を「オフライン優先」で使う（画面にその旨を表示する）。
- *   この切り替えを許すかどうかは issue #9 で検討中
+ * - Android 12 以降の createOnDeviceSpeechRecognizer だけを使う
+ * - 端末内認識が使えない端末では通常の認識（サーバに音声が送られることがある）には切り替えず、
+ *   [FatalError.OnDeviceUnavailable] を返す。画面側は手入力だけで使えるようにする（issue #9）
  * - 1文の認識が終わる・無音で止まるたびに、自動で次の聞き取りを始める
  * - 音声データは受け取らず、保存もしない（onBufferReceived は何もしない）
  *
@@ -41,21 +41,16 @@ class SpeechController(
 
     enum class State { STARTING, LISTENING, HEARING, STOPPED }
 
-    enum class Mode { ON_DEVICE, OFFLINE_PREFERRED }
-
     sealed interface FatalError {
-        data object NoRecognizer : FatalError
+        /** 端末内認識がない、または日本語に対応していない */
+        data object OnDeviceUnavailable : FatalError
         data object PermissionDenied : FatalError
         data object ModelDownloading : FatalError
         data class Repeated(val code: Int) : FatalError
     }
 
-    var mode: Mode = Mode.OFFLINE_PREFERRED
-        private set
-
     private var recognizer: SpeechRecognizer? = null
     private var running = false
-    private var forceFallback = false
     private var downloadRequested = false
     private var consecutiveErrors = 0
     private val handler = Handler(Looper.getMainLooper())
@@ -64,21 +59,21 @@ class SpeechController(
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ja-JP")
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-        putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
         putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
         putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
     }
 
     fun start() {
         if (running) return
-        if (!onDeviceAvailable() && !SpeechRecognizer.isRecognitionAvailable(context)) {
-            listener.onFatalError(FatalError.NoRecognizer)
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
+            !SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+        ) {
+            listener.onFatalError(FatalError.OnDeviceUnavailable)
             return
         }
         running = true
         consecutiveErrors = 0
         createRecognizer()
-        // mode が決まってから通知する（画面の認識方式の表示に使う）
         listener.onStateChanged(State.STARTING)
         listen()
     }
@@ -90,19 +85,11 @@ class SpeechController(
         listener.onStateChanged(State.STOPPED)
     }
 
-    private fun onDeviceAvailable(): Boolean =
-        !forceFallback && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
-            SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
-
     private fun createRecognizer() {
         destroyRecognizer()
-        recognizer = if (onDeviceAvailable() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            mode = Mode.ON_DEVICE
-            SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
-        } else {
-            mode = Mode.OFFLINE_PREFERRED
-            SpeechRecognizer.createSpeechRecognizer(context)
-        }.also { it.setRecognitionListener(this) }
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        recognizer = SpeechRecognizer.createOnDeviceSpeechRecognizer(context)
+            .also { it.setRecognitionListener(this) }
     }
 
     private fun destroyRecognizer() {
@@ -165,7 +152,7 @@ class SpeechController(
 
             ERROR_LANGUAGE_UNAVAILABLE -> {
                 // 端末内の日本語モデルが未ダウンロード
-                if (mode == Mode.ON_DEVICE && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     // ダウンロード確認ダイアログを閉じると onResume で再開してまたここに来るので、
                     // 確認を出すのは1回だけにする
                     if (!downloadRequested) {
@@ -174,11 +161,11 @@ class SpeechController(
                     }
                     fatal(FatalError.ModelDownloading)
                 } else {
-                    fallbackOrFail(error)
+                    fatal(FatalError.OnDeviceUnavailable)
                 }
             }
 
-            ERROR_LANGUAGE_NOT_SUPPORTED -> fallbackOrFail(error)
+            ERROR_LANGUAGE_NOT_SUPPORTED -> fatal(FatalError.OnDeviceUnavailable)
 
             SpeechRecognizer.ERROR_RECOGNIZER_BUSY -> restart(BUSY_DELAY_MS, recreate = true)
 
@@ -187,18 +174,6 @@ class SpeechController(
                 if (consecutiveErrors > MAX_CONSECUTIVE_ERRORS) fatal(FatalError.Repeated(error))
                 else restart(BUSY_DELAY_MS, recreate = true)
             }
-        }
-    }
-
-    /** 端末内認識で日本語が使えなければ、通常の認識に切り替える */
-    private fun fallbackOrFail(error: Int) {
-        if (mode == Mode.ON_DEVICE) {
-            forceFallback = true
-            createRecognizer()
-            listener.onStateChanged(State.STARTING)
-            restart()
-        } else {
-            fatal(FatalError.Repeated(error))
         }
     }
 
