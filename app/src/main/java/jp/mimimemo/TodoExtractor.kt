@@ -48,6 +48,12 @@ class TodoExtractor(
         return keywords().any { it.isNotBlank() && sentence.contains(it) }
     }
 
+    /**
+     * 一覧の入力欄に打った1行から ToDo をつくる（キーワードでの絞り込みはしない）。
+     * 「明日までにレポート提出」なら、タイトル「レポート提出」・期限・タグを埋める。
+     */
+    fun fromManualInput(text: String): Todo = extractByRule(text).copy(sourceText = null)
+
     /** キーワードと日付表現のルールだけで取り出す。 */
     internal fun extractByRule(sentence: String): Todo {
         val text = sentence.trim()

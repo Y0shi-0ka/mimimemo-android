@@ -1,7 +1,6 @@
 package jp.mimimemo
 
 import android.os.Bundle
-import android.view.inputmethod.EditorInfo
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
 import com.google.android.material.chip.Chip
@@ -22,14 +21,7 @@ class SettingsActivity : AppCompatActivity() {
         store = KeywordStore(this)
 
         binding.buttonAdd.setOnClickListener { addKeyword() }
-        binding.editKeyword.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_DONE) {
-                addKeyword()
-                true
-            } else {
-                false
-            }
-        }
+        binding.editKeyword.onSubmit { addKeyword() }
         binding.editKeyword.doAfterTextChanged { binding.layoutKeyword.error = null }
         binding.buttonReset.setOnClickListener {
             MaterialAlertDialogBuilder(this)

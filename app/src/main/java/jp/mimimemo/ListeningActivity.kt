@@ -12,14 +12,15 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.LayoutInflater
 import android.view.WindowManager
-import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
-import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.snackbar.Snackbar
 import jp.mimimemo.databinding.ActivityListeningBinding
 import jp.mimimemo.databinding.DialogCandidateBinding
 import kotlinx.coroutines.launch
@@ -28,7 +29,8 @@ import java.time.LocalDateTime
 /**
  * ② 聞き取り画面。
  * この画面を表示している間だけ聞き取り、離れると止める（onPause）。
- * ToDo の候補が見つかるたびに ③ 確認ダイアログを出す。
+ * ToDo の候補は聞き取りを止めずにカードで並べ、右スワイプで追加・左スワイプで却下する。
+ * カードをタップすると ③ 確認ダイアログで詳細を直してから追加できる（issue #12）。
  */
 class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
 
@@ -40,8 +42,10 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     private data class Line(val text: String, val candidate: Boolean)
 
     private val lines = ArrayDeque<Line>()
-    private val pendingCandidates = ArrayDeque<Todo>()
-    private var dialogShowing = false
+    /** 確認待ちの候補（新しいものが先頭）。DB にはまだ入っていないので id は負の仮番号 */
+    private val candidates = mutableListOf<Todo>()
+    private var nextTempId = -1L
+    private lateinit var candidateAdapter: TodoAdapter
     private var addedCount = 0
     private var permissionRequested = false
     private var pulse: ObjectAnimator? = null
@@ -63,16 +67,22 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         extractor = TodoExtractor(keywords = keywords::load, ai = UnavailableLocalAiClient)
         speech = SpeechController(this, this)
 
+        candidateAdapter = TodoAdapter(onClick = ::showCandidateDialog)
+        binding.listCandidates.layoutManager = LinearLayoutManager(this)
+        binding.listCandidates.adapter = candidateAdapter
+        SwipeActions.attach(
+            binding.listCandidates,
+            left = SwipeAction(R.string.swipe_reject, R.drawable.ic_close, getColor(R.color.swipe_neutral)) {
+                rejectCandidate(candidateAdapter.currentList[it])
+            },
+            right = SwipeAction(R.string.swipe_add, R.drawable.ic_check, getColor(R.color.swipe_positive)) {
+                acceptCandidate(candidateAdapter.currentList[it])
+            },
+        )
+
         binding.buttonStop.setOnClickListener { finish() }
         binding.buttonSend.setOnClickListener { sendManual() }
-        binding.editManual.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEND) {
-                sendManual()
-                true
-            } else {
-                false
-            }
-        }
+        binding.editManual.onSubmit { sendManual() }
         updateAddedCount()
     }
 
@@ -160,19 +170,60 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         lifecycleScope.launch {
             val todo = extractor.extract(text)
             addLine(Line(text, todo != null))
-            if (todo != null) {
-                pendingCandidates.addLast(todo)
-                showNextCandidate()
-            }
+            if (todo != null) addCandidate(todo.copy(id = nextTempId--))
         }
     }
 
-    private fun showNextCandidate() {
-        if (dialogShowing || isFinishing) return
-        val todo = pendingCandidates.removeFirstOrNull() ?: return
-        showCandidateDialog(todo)
+    private fun addCandidate(candidate: Todo, index: Int = 0) {
+        candidates.add(index.coerceIn(0, candidates.size), candidate)
+        // 差分の反映は非同期なので、反映が終わってから先頭（いちばん新しい候補）を見せる
+        renderCandidates { binding.listCandidates.scrollToPosition(0) }
     }
 
+    /** 候補を追加する。edited は詳細ダイアログで直した内容 */
+    private fun acceptCandidate(candidate: Todo, edited: Todo = candidate) {
+        val index = removeCandidate(candidate) ?: return
+        val id = db.insert(edited.copy(id = 0, createdAt = LocalDateTime.now()))
+        addedCount++
+        updateAddedCount()
+        showUndo(getString(R.string.candidate_added, edited.title)) {
+            db.delete(id)
+            addedCount--
+            updateAddedCount()
+            addCandidate(candidate, index)
+        }
+    }
+
+    private fun rejectCandidate(candidate: Todo) {
+        val index = removeCandidate(candidate) ?: return
+        showUndo(getString(R.string.candidate_rejected, candidate.title)) { addCandidate(candidate, index) }
+    }
+
+    /** 一覧から消して、元の位置を返す */
+    private fun removeCandidate(candidate: Todo): Int? {
+        val index = candidates.indexOfFirst { it.id == candidate.id }
+        if (index < 0) return null
+        candidates.removeAt(index)
+        renderCandidates()
+        return index
+    }
+
+    private fun renderCandidates(onCommitted: () -> Unit = {}) {
+        candidateAdapter.submitList(candidates.toList(), onCommitted)
+        val any = candidates.isNotEmpty()
+        binding.listCandidates.isVisible = any
+        binding.textCandidatesHeader.isVisible = any
+        binding.textCandidatesHeader.text = getString(R.string.candidates_header, candidates.size)
+    }
+
+    private fun showUndo(message: String, undo: () -> Unit) {
+        Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG)
+            .setAction(R.string.undo) { undo() }
+            .setAnchorView(binding.manualRow)
+            .show()
+    }
+
+    /** ③ 候補の詳細を直してから追加するダイアログ（カードをタップしたとき） */
     private fun showCandidateDialog(candidate: Todo) {
         val b = DialogCandidateBinding.inflate(LayoutInflater.from(this))
         var due = candidate.due
@@ -193,29 +244,17 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         b.spinnerTag.setSelection(Todo.TAGS.indexOf(candidate.tag).coerceAtLeast(0))
         b.textSource.text = getString(R.string.source_quote, candidate.sourceText.orEmpty())
 
-        dialogShowing = true
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.candidate_title)
             .setView(b.root)
             .setPositiveButton(R.string.candidate_add) { _, _ ->
-                val title = b.editTitle.text?.toString()?.trim().orEmpty()
-                    .ifEmpty { candidate.title }
-                val todo = candidate.copy(
-                    title = title,
-                    due = due,
-                    tag = b.spinnerTag.selectedItem as String,
-                    createdAt = LocalDateTime.now(),
+                val title = b.editTitle.text?.toString()?.trim().orEmpty().ifEmpty { candidate.title }
+                acceptCandidate(
+                    candidate,
+                    candidate.copy(title = title, due = due, tag = b.spinnerTag.selectedItem as String),
                 )
-                db.insert(todo)
-                addedCount++
-                updateAddedCount()
-                Toast.makeText(this, getString(R.string.candidate_added, title), Toast.LENGTH_SHORT).show()
             }
-            .setNegativeButton(R.string.candidate_reject, null)
-            .setOnDismissListener {
-                dialogShowing = false
-                showNextCandidate()
-            }
+            .setNegativeButton(R.string.candidate_reject) { _, _ -> rejectCandidate(candidate) }
             .show()
     }
 

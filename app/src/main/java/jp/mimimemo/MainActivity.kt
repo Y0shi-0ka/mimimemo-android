@@ -22,6 +22,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var db: TodoDbHelper
     private lateinit var adapter: TodoAdapter
+    private lateinit var extractor: TodoExtractor
     private var speaker: ReminderSpeaker? = null
     private val prefs by lazy { getSharedPreferences(PREFS, MODE_PRIVATE) }
 
@@ -47,10 +48,24 @@ class MainActivity : AppCompatActivity() {
         binding.listView.layoutManager = LinearLayoutManager(this)
         binding.listView.adapter = adapter
 
+        // 右スワイプで完了、左スワイプで削除（どちらも元に戻せる）
+        SwipeActions.attach(
+            binding.listView,
+            left = SwipeAction(R.string.swipe_delete, R.drawable.ic_delete, getColor(R.color.swipe_delete)) {
+                delete(adapter.currentList[it])
+            },
+            right = SwipeAction(R.string.swipe_done, R.drawable.ic_check, getColor(R.color.swipe_positive)) {
+                markDone(adapter.currentList[it], true)
+            },
+        )
+
+        extractor = TodoExtractor(keywords = { emptyList() })
+        binding.buttonQuickAdd.setOnClickListener { quickAdd() }
+        binding.editQuickAdd.onSubmit { quickAdd() }
+
         binding.fabListen.setOnClickListener {
             startActivity(Intent(this, ListeningActivity::class.java))
         }
-        binding.fabAdd.setOnClickListener { startActivity(TodoEditActivity.intent(this, null)) }
         binding.buttonSpeakReminder.setOnClickListener { speakReminder() }
 
         askMicPermissionOnFirstLaunch()
@@ -105,14 +120,48 @@ class MainActivity : AppCompatActivity() {
         db.setDone(todo.id, done)
         refresh()
         if (done) {
-            Snackbar.make(binding.root, getString(R.string.done_message, todo.title), Snackbar.LENGTH_LONG)
-                .setAction(R.string.undo) {
-                    db.setDone(todo.id, false)
-                    refresh()
-                }
-                .setAnchorView(binding.fabListen)
-                .show()
+            showUndo(getString(R.string.done_message, todo.title)) {
+                db.setDone(todo.id, false)
+                refresh()
+            }
         }
+    }
+
+    private fun delete(todo: Todo) {
+        db.delete(todo.id)
+        refresh()
+        showUndo(getString(R.string.deleted_message, todo.title)) {
+            db.insert(todo.copy(id = 0))
+            refresh()
+        }
+    }
+
+    /** 入力欄の1行から、期限・タグも埋めてその場で追加する */
+    private fun quickAdd() {
+        val text = binding.editQuickAdd.text?.toString()?.trim().orEmpty()
+        if (text.isEmpty()) return
+        val todo = extractor.fromManualInput(text)
+        val id = db.insert(todo)
+        binding.editQuickAdd.text = null
+        refresh()
+
+        val detail = listOfNotNull(todo.due?.let { DueFormatter.short(it) }, todo.tag).joinToString("・")
+        showUndo(getString(R.string.quick_added_message, todo.title, detail)) {
+            db.delete(id)
+            refresh()
+        }
+        // 追加した項目が見えるところまでスクロールする
+        binding.listView.post {
+            val position = adapter.currentList.indexOfFirst { it.id == id }
+            if (position >= 0) binding.listView.smoothScrollToPosition(position)
+        }
+    }
+
+    private fun showUndo(message: String, undo: () -> Unit) {
+        Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG)
+            .setAction(R.string.undo) { undo() }
+            .setAnchorView(binding.fabListen)
+            .show()
     }
 
     /** 明日が期限の ToDo を読み上げる。読み上げるものがなければ false */
