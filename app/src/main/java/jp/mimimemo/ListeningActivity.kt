@@ -134,19 +134,17 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     }
 
     override fun onFatalError(error: SpeechController.FatalError) {
-        if (error == SpeechController.FatalError.OnDeviceUnavailable) {
+        when (error) {
             // 通常の認識には切り替えず、手入力だけで使う（issue #9）
-            showError(getString(R.string.error_on_device_unavailable), R.string.status_manual_only)
-            return
+            SpeechController.FatalError.OnDeviceUnavailable ->
+                showError(getString(R.string.error_on_device_unavailable), R.string.status_manual_only)
+            SpeechController.FatalError.PermissionDenied ->
+                showError(getString(R.string.mic_permission_denied))
+            SpeechController.FatalError.ModelDownloading ->
+                showError(getString(R.string.error_model_download))
+            is SpeechController.FatalError.Repeated ->
+                showError(getString(R.string.error_recognizer, error.code))
         }
-        showError(
-            when (error) {
-                SpeechController.FatalError.OnDeviceUnavailable -> getString(R.string.error_on_device_unavailable)
-                SpeechController.FatalError.PermissionDenied -> getString(R.string.mic_permission_denied)
-                SpeechController.FatalError.ModelDownloading -> getString(R.string.error_model_download)
-                is SpeechController.FatalError.Repeated -> getString(R.string.error_recognizer, error.code)
-            }
-        )
     }
 
     // ---- 抽出と確認ダイアログ ----
