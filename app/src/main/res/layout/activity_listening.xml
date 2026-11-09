@@ -70,7 +70,7 @@
         android:paddingHorizontal="20dp"
         android:visibility="gone" />
 
-    <androidx.recyclerview.widget.RecyclerView
+    <jp.mimimemo.MaxHeightRecyclerView
         android:id="@+id/listCandidates"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

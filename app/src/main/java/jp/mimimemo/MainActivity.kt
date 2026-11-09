@@ -6,7 +6,6 @@ import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
-import android.view.inputmethod.EditorInfo
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -62,14 +61,7 @@ class MainActivity : AppCompatActivity() {
 
         extractor = TodoExtractor(keywords = { emptyList() })
         binding.buttonQuickAdd.setOnClickListener { quickAdd() }
-        binding.editQuickAdd.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_DONE) {
-                quickAdd()
-                true
-            } else {
-                false
-            }
-        }
+        binding.editQuickAdd.onSubmit { quickAdd() }
 
         binding.fabListen.setOnClickListener {
             startActivity(Intent(this, ListeningActivity::class.java))

@@ -12,7 +12,6 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.LayoutInflater
 import android.view.WindowManager
-import android.view.inputmethod.EditorInfo
 import android.widget.ArrayAdapter
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -83,14 +82,7 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
 
         binding.buttonStop.setOnClickListener { finish() }
         binding.buttonSend.setOnClickListener { sendManual() }
-        binding.editManual.setOnEditorActionListener { _, actionId, _ ->
-            if (actionId == EditorInfo.IME_ACTION_SEND) {
-                sendManual()
-                true
-            } else {
-                false
-            }
-        }
+        binding.editManual.onSubmit { sendManual() }
         updateAddedCount()
     }
 
@@ -184,8 +176,8 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
 
     private fun addCandidate(candidate: Todo, index: Int = 0) {
         candidates.add(index.coerceIn(0, candidates.size), candidate)
-        renderCandidates()
-        binding.listCandidates.scrollToPosition(0)
+        // 差分の反映は非同期なので、反映が終わってから先頭（いちばん新しい候補）を見せる
+        renderCandidates { binding.listCandidates.scrollToPosition(0) }
     }
 
     /** 候補を追加する。edited は詳細ダイアログで直した内容 */
@@ -216,8 +208,8 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         return index
     }
 
-    private fun renderCandidates() {
-        candidateAdapter.submitList(candidates.toList())
+    private fun renderCandidates(onCommitted: () -> Unit = {}) {
+        candidateAdapter.submitList(candidates.toList(), onCommitted)
         val any = candidates.isNotEmpty()
         binding.listCandidates.isVisible = any
         binding.textCandidatesHeader.isVisible = any
