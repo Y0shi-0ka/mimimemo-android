@@ -61,6 +61,23 @@
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
+    <!-- 確認待ちの ToDo 候補：右スワイプで追加、左で却下、タップで詳細 -->
+    <TextView
+        android:id="@+id/textCandidatesHeader"
+        style="@style/MimiMemo.SectionTitle"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="20dp"
+        android:visibility="gone" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/listCandidates"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingHorizontal="12dp"
+        android:paddingBottom="8dp"
+        android:visibility="gone" />
+
     <ScrollView
         android:id="@+id/scrollTranscript"
         android:layout_width="match_parent"
@@ -93,6 +110,7 @@
 
     <!-- 手入力でも同じ流れを試せる欄（実機の音声認識が使えないときの確認用） -->
     <LinearLayout
+        android:id="@+id/manualRow"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"

@@ -10,5 +10,8 @@
     <color name="listening">#E53935</color>
     <color name="idle">#9E9E9E</color>
     <color name="candidate_highlight">#3949AB</color>
+    <color name="swipe_positive">#2E7D32</color>
+    <color name="swipe_delete">#C62828</color>
+    <color name="swipe_neutral">#757575</color>
     <color name="ic_launcher_background">#3949AB</color>
 </resources>

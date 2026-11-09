@@ -61,6 +61,22 @@ class TodoExtractorTest {
     }
 
     @Test
+    fun manualInputFillsDueAndTag() {
+        val e = extractor()
+        val todo = e.fromManualInput("明日までにレポート提出")
+        assertEquals("レポート提出", todo.title)
+        assertEquals(LocalDate.of(2026, 11, 12), todo.due)
+        assertEquals("授業", todo.tag)
+        assertNull(todo.sourceText)
+
+        // キーワードがなくても、そのままの文で追加できる
+        val plain = e.fromManualInput("牛乳を買う")
+        assertEquals("牛乳を買う", plain.title)
+        assertNull(plain.due)
+        assertEquals(Todo.TAG_OTHER, plain.tag)
+    }
+
+    @Test
     fun tags() {
         val e = extractor()
         assertEquals("研究室", e.guessTag("ゼミの資料を準備して"))

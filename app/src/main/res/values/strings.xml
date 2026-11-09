@@ -17,11 +17,18 @@
     <!-- ① 一覧 -->
     <string name="action_listen">聞き取る</string>
     <string name="action_add">ToDoを追加</string>
-    <string name="empty_list">まだToDoはありません。\n「聞き取る」で会話からToDoを見つけるか、＋で追加してください。</string>
+    <string name="empty_list">まだToDoはありません。\n「聞き取る」で会話からToDoを見つけるか、下の欄に入力してください。\n\nカードは右にスワイプで完了、左で削除できます。</string>
     <string name="reminder_banner">明日が期限のToDoが %1$d 件あります</string>
     <string name="action_speak">読み上げ</string>
     <string name="done_message">「%1$s」を完了にしました</string>
     <string name="undo">元に戻す</string>
+    <string name="deleted_message">「%1$s」を削除しました</string>
+    <string name="quick_add_hint">やることを入力（例：明日までにレポート提出）</string>
+    <string name="quick_added_message">「%1$s」を追加しました　%2$s</string>
+    <string name="swipe_done">完了</string>
+    <string name="swipe_delete">削除</string>
+    <string name="swipe_add">追加</string>
+    <string name="swipe_reject">却下</string>
     <string name="mic_permission_denied">マイクの使用が許可されていないため、聞き取りはできません。設定アプリから許可できます。</string>
     <string name="source_quote">「%1$s」</string>
 
@@ -32,7 +39,7 @@
     <string name="status_stopped">停止中</string>
     <string name="mode_on_device">端末内で文字起こししています。音声は保存しません。</string>
     <string name="status_manual_only">手入力のみ</string>
-    <string name="transcript_hint">ここに文字起こしが表示されます。\nToDoの候補が見つかると確認ダイアログが出ます。</string>
+    <string name="transcript_hint">ここに文字起こしが表示されます。\nToDoの候補が見つかると、上にカードで並びます。</string>
     <string name="added_count">追加したToDo：%1$d 件</string>
     <string name="action_stop">停止</string>
     <string name="manual_hint">文を入力して試す（例：来週月曜までにレポート提出）</string>
@@ -42,10 +49,12 @@
     <string name="error_recognizer">音声認識でエラーが続いたため停止しました（コード %1$d）。画面を開き直すと再開します。</string>
 
     <!-- ③ 候補ダイアログ -->
-    <string name="candidate_title">ToDoの候補が見つかりました</string>
+    <string name="candidate_title">ToDoの候補</string>
     <string name="candidate_add">追加</string>
     <string name="candidate_reject">却下</string>
     <string name="candidate_added">「%1$s」を追加しました</string>
+    <string name="candidate_rejected">「%1$s」を却下しました</string>
+    <string name="candidates_header">確認待ちの候補 %1$d 件　右スワイプで追加／左で却下／タップで詳細</string>
     <string name="label_title">やること</string>
     <string name="label_due">期限</string>
     <string name="label_tag">科目・活動</string>
