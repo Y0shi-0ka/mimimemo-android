@@ -5,12 +5,42 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <!-- 動作中であることを常に表示する（プライバシー方針①） -->
+    <!-- 動作中であることを常に表示する（プライバシー方針①）。高さは聞き取り中に変わらない -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:minHeight="64dp"
+        android:orientation="horizontal"
+        android:paddingHorizontal="24dp">
+
+        <View
+            android:id="@+id/statusDot"
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:background="@drawable/bg_dot"
+            android:backgroundTint="@color/idle" />
+
+        <TextView
+            android:id="@+id/textStatus"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
+            android:maxLines="1"
+            android:text="@string/status_starting"
+            android:textAppearance="?attr/textAppearanceTitleLarge" />
+    </LinearLayout>
+
+    <!-- 聞き取れないとき（モデルがない・許可がない・使えない端末）だけ、理由とできる操作を出す -->
     <com.google.android.material.card.MaterialCardView
+        android:id="@+id/noticeCard"
         style="@style/Widget.Material3.CardView.Filled"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_margin="16dp"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="8dp"
+        android:visibility="gone"
         app:cardBackgroundColor="?attr/colorPrimaryContainer"
         app:cardCornerRadius="20dp">
 
@@ -20,49 +50,15 @@
             android:orientation="vertical"
             android:padding="16dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <View
-                    android:id="@+id/statusDot"
-                    android:layout_width="14dp"
-                    android:layout_height="14dp"
-                    android:background="@drawable/bg_dot"
-                    android:backgroundTint="@color/idle" />
-
-                <TextView
-                    android:id="@+id/textStatus"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="10dp"
-                    android:layout_weight="1"
-                    android:text="@string/status_starting"
-                    android:textAppearance="?attr/textAppearanceTitleLarge"
-                    android:textColor="?attr/colorOnPrimaryContainer" />
-
-                <TextView
-                    android:id="@+id/textAdded"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:textAppearance="?attr/textAppearanceLabelLarge"
-                    android:textColor="?attr/colorOnPrimaryContainer" />
-            </LinearLayout>
-
             <TextView
-                android:id="@+id/textMode"
+                android:id="@+id/textNotice"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
                 android:textAppearance="?attr/textAppearanceBodyMedium"
                 android:textColor="?attr/colorOnPrimaryContainer" />
 
-            <!-- モデルのダウンロードなど、いまできる操作があるときだけ出す -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/buttonAction"
-                style="@style/Widget.Material3.Button.TonalButton"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
@@ -71,14 +67,6 @@
     </com.google.android.material.card.MaterialCardView>
 
     <!-- 確認待ちの ToDo 候補：右スワイプで追加、左で却下、タップで詳細 -->
-    <TextView
-        android:id="@+id/textCandidatesHeader"
-        style="@style/MimiMemo.SectionTitle"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:paddingHorizontal="20dp"
-        android:visibility="gone" />
-
     <jp.mimimemo.MaxHeightRecyclerView
         android:id="@+id/listCandidates"
         android:layout_width="match_parent"
@@ -92,7 +80,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1"
-        android:paddingHorizontal="20dp">
+        android:paddingHorizontal="24dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -117,7 +105,7 @@
         </LinearLayout>
     </ScrollView>
 
-    <!-- 手入力でも同じ流れを試せる欄（実機の音声認識が使えないときの確認用） -->
+    <!-- 聞き取れないときだけ出す。文を打つと、聞き取ったときと同じ流れで候補を探す -->
     <LinearLayout
         android:id="@+id/manualRow"
         android:layout_width="match_parent"
@@ -125,7 +113,8 @@
         android:gravity="center_vertical"
         android:orientation="horizontal"
         android:paddingHorizontal="12dp"
-        android:paddingTop="8dp">
+        android:paddingTop="8dp"
+        android:visibility="gone">
 
         <com.google.android.material.textfield.TextInputLayout
             style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense"
