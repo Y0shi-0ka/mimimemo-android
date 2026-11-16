@@ -84,9 +84,11 @@ class SpeechController(
 
     fun start() {
         if (running) return
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S ||
-            !SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
-        ) {
+        val onDevice = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+            SpeechRecognizer.isOnDeviceRecognitionAvailable(context)
+        // 実機で止まったときに原因を追えるよう、状態とエラーコードだけをログに出す。認識した文は出さない（issue #17）
+        Log.d(TAG, "start sdk=${Build.VERSION.SDK_INT} onDevice=$onDevice")
+        if (!onDevice) {
             listener.onFatalError(FatalError.OnDeviceUnavailable)
             return
         }
@@ -228,6 +230,7 @@ class SpeechController(
     private fun isJapanese(tag: String) = tag.startsWith("ja", ignoreCase = true)
 
     private fun fatal(error: FatalError) {
+        Log.d(TAG, "fatal $error")
         stop()
         listener.onFatalError(error)
     }
@@ -250,6 +253,7 @@ class SpeechController(
         consecutiveErrors = 0
         modelIsWorking()
         val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim()
+        Log.d(TAG, "onResults chars=${text?.length ?: 0}")
         if (!text.isNullOrEmpty()) listener.onSentence(text)
         listener.onStateChanged(State.LISTENING)
         restart()
