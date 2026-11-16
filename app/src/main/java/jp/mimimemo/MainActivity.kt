@@ -7,6 +7,7 @@ import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
 import androidx.core.view.isVisible
+import androidx.core.widget.doAfterTextChanged
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.snackbar.Snackbar
 import jp.mimimemo.databinding.ActivityMainBinding
@@ -47,12 +48,13 @@ class MainActivity : AppCompatActivity() {
         )
 
         extractor = TodoExtractor(keywords = { emptyList() })
-        binding.buttonQuickAdd.setOnClickListener { quickAdd() }
-        binding.editQuickAdd.onSubmit { quickAdd() }
-
-        binding.fabListen.setOnClickListener {
-            startActivity(Intent(this, ListeningActivity::class.java))
+        // 右のボタンは、空のときマイク（聞き取りへ）、文字を打つと追加になる（issue #20）
+        binding.buttonQuickAdd.setOnClickListener {
+            if (hasQuickAddText()) quickAdd() else startActivity(Intent(this, ListeningActivity::class.java))
         }
+        binding.editQuickAdd.onSubmit { quickAdd() }
+        binding.editQuickAdd.doAfterTextChanged { renderQuickAddButton() }
+        renderQuickAddButton()
         binding.buttonSpeakReminder.setOnClickListener { speakReminder() }
     }
 
@@ -121,6 +123,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun hasQuickAddText() = !binding.editQuickAdd.text.isNullOrBlank()
+
+    private fun renderQuickAddButton() {
+        val add = hasQuickAddText()
+        if (binding.buttonQuickAdd.tag == add) return
+        binding.buttonQuickAdd.tag = add
+        binding.buttonQuickAdd.setIconResource(if (add) R.drawable.ic_add else R.drawable.ic_mic)
+        binding.buttonQuickAdd.contentDescription =
+            getString(if (add) R.string.action_add else R.string.action_listen)
+    }
+
     /** 入力欄の1行から、期限・タグも埋めてその場で追加する */
     private fun quickAdd() {
         val text = binding.editQuickAdd.text?.toString()?.trim().orEmpty()
@@ -145,7 +158,7 @@ class MainActivity : AppCompatActivity() {
     private fun showUndo(message: String, undo: () -> Unit) {
         Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG)
             .setAction(R.string.undo) { undo() }
-            .setAnchorView(binding.fabListen)
+            .setAnchorView(binding.quickAddBar)
             .show()
     }
 
@@ -154,7 +167,9 @@ class MainActivity : AppCompatActivity() {
         val todos = db.findDueOn(LocalDate.now().plusDays(1))
         if (todos.isEmpty()) return false
         val s = speaker ?: ReminderSpeaker(this) {
-            Snackbar.make(binding.root, R.string.tts_unavailable, Snackbar.LENGTH_LONG).show()
+            Snackbar.make(binding.root, R.string.tts_unavailable, Snackbar.LENGTH_LONG)
+                .setAnchorView(binding.quickAddBar)
+                .show()
         }.also { speaker = it }
         return s.remindDueTomorrow(todos)
     }
