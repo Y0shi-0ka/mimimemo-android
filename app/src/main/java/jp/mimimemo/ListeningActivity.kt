@@ -3,9 +3,12 @@ package jp.mimimemo
 import android.Manifest
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
@@ -309,8 +312,21 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         binding.textTranscript.hint = null
     }
 
-    private fun showPermissionDenied() =
-        showNotice(R.string.status_stopped, getString(R.string.mic_permission_denied))
+    /**
+     * マイクが許可されていないとき。ボタン1つで許可へ進めるようにする（issue #15）。
+     * まだ確認を出せるならその場で出し、出せなくなっていたら（2回断った後）アプリの設定を開く。
+     * 設定で許可して戻ると、onResume で聞き取りが始まる。
+     */
+    private fun showPermissionDenied(): Unit =
+        showNotice(R.string.status_mic_denied, getString(R.string.mic_permission_denied), R.string.action_allow_mic) {
+            if (shouldShowRequestPermissionRationale(Manifest.permission.RECORD_AUDIO)) {
+                requestMic.launch(Manifest.permission.RECORD_AUDIO)
+            } else {
+                startActivity(
+                    Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", packageName, null))
+                )
+            }
+        }
 
     private fun setIndicator(indicator: Indicator) {
         val active = indicator != Indicator.OFF
