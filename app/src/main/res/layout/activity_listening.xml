@@ -58,6 +58,15 @@
                 android:layout_marginTop="8dp"
                 android:textAppearance="?attr/textAppearanceBodyMedium"
                 android:textColor="?attr/colorOnPrimaryContainer" />
+
+            <!-- モデルのダウンロードなど、いまできる操作があるときだけ出す -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonAction"
+                style="@style/Widget.Material3.Button.TonalButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:visibility="gone" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

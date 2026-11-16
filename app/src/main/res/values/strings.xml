@@ -45,7 +45,11 @@
     <string name="manual_hint">文を入力して試す（例：来週月曜までにレポート提出）</string>
     <string name="action_send">送信</string>
     <string name="error_on_device_unavailable">この端末では端末内の音声認識が使えません。会話の内容を外部に送らないため、聞き取りは行いません。下の欄に文を入力すると、ToDoの候補を探せます。</string>
-    <string name="error_model_download">端末内の日本語音声認識モデルがまだありません。ダウンロードが終わったら、もう一度この画面を開いてください。</string>
+    <string name="status_model_downloading">ダウンロード中</string>
+    <string name="status_model_required">日本語モデルが必要</string>
+    <string name="mode_model_downloading">文字起こし用の日本語モデルを入れています。終わると自動で始まります。</string>
+    <string name="mode_model_required">端末内で文字起こしするには、日本語モデルのダウンロードが必要です。</string>
+    <string name="action_download_model">ダウンロードする</string>
     <string name="error_recognizer">音声認識でエラーが続いたため停止しました（コード %1$d）。画面を開き直すと再開します。</string>
 
     <!-- ③ 候補ダイアログ -->

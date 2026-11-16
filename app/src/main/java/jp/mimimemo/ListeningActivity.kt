@@ -137,10 +137,26 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
             SpeechController.State.LISTENING -> R.string.status_listening to true
             SpeechController.State.HEARING -> R.string.status_hearing to true
             SpeechController.State.STOPPED -> R.string.status_stopped to false
+            SpeechController.State.MODEL_DOWNLOADING -> R.string.status_model_downloading to false
+            SpeechController.State.MODEL_REQUIRED -> R.string.status_model_required to false
         }
         binding.textStatus.setText(label)
         setIndicator(active)
-        if (state != SpeechController.State.STOPPED) binding.textMode.setText(R.string.mode_on_device)
+        when (state) {
+            SpeechController.State.STOPPED -> return
+            SpeechController.State.MODEL_DOWNLOADING -> {
+                binding.textMode.setText(R.string.mode_model_downloading)
+                hideAction()
+            }
+            SpeechController.State.MODEL_REQUIRED -> {
+                binding.textMode.setText(R.string.mode_model_required)
+                showAction(R.string.action_download_model) { speech.requestModelDownload() }
+            }
+            else -> {
+                binding.textMode.setText(R.string.mode_on_device)
+                hideAction()
+            }
+        }
     }
 
     override fun onFatalError(error: SpeechController.FatalError) {
@@ -150,8 +166,6 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
                 showError(getString(R.string.error_on_device_unavailable), R.string.status_manual_only)
             SpeechController.FatalError.PermissionDenied ->
                 showError(getString(R.string.mic_permission_denied))
-            SpeechController.FatalError.ModelDownloading ->
-                showError(getString(R.string.error_model_download))
             is SpeechController.FatalError.Repeated ->
                 showError(getString(R.string.error_recognizer, error.code))
         }
@@ -291,7 +305,19 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     private fun showError(message: String, statusLabel: Int = R.string.status_stopped) {
         binding.textStatus.setText(statusLabel)
         binding.textMode.text = message
+        hideAction()
         setIndicator(false)
+    }
+
+    /** 状態カードの中に、いまできる操作のボタンを1つ出す */
+    private fun showAction(label: Int, onClick: () -> Unit) {
+        binding.buttonAction.setText(label)
+        binding.buttonAction.setOnClickListener { onClick() }
+        binding.buttonAction.isVisible = true
+    }
+
+    private fun hideAction() {
+        binding.buttonAction.isVisible = false
     }
 
     private fun setIndicator(active: Boolean) {
