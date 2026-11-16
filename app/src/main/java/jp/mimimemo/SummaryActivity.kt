@@ -1,7 +1,10 @@
 package jp.mimimemo
 
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.snackbar.Snackbar
 import jp.mimimemo.databinding.ActivitySummaryBinding
@@ -26,14 +29,29 @@ class SummaryActivity : AppCompatActivity() {
         adapter = TodoAdapter(onClick = { startActivity(TodoEditActivity.intent(this, it.id)) }, showSource = true)
         binding.listView.layoutManager = LinearLayoutManager(this)
         binding.listView.adapter = adapter
-        binding.buttonSpeak.setOnClickListener { speakSummary() }
+    }
+
+    /** 読み上げは上のバーのボタンから（issue #29） */
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menu.add(Menu.NONE, MENU_SPEAK, Menu.NONE, R.string.action_speak)
+            .setIcon(R.drawable.ic_volume)
+            .setShowAsAction(MenuItem.SHOW_AS_ACTION_ALWAYS)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        MENU_SPEAK -> {
+            speakSummary()
+            true
+        }
+        else -> super.onOptionsItemSelected(item)
     }
 
     override fun onResume() {
         super.onResume()
         todos = db.findCreatedOn(LocalDate.now())
         adapter.submitList(todos)
-        binding.textHeader.text = getString(R.string.summary_header, todos.size)
+        binding.emptyView.isVisible = todos.isEmpty()
     }
 
     override fun onStop() {
@@ -52,12 +70,16 @@ class SummaryActivity : AppCompatActivity() {
         return true
     }
 
-    fun speakSummary() {
+    private fun speakSummary() {
         val s = speaker ?: ReminderSpeaker(this) {
             Snackbar.make(binding.root, R.string.tts_unavailable, Snackbar.LENGTH_LONG).show()
         }.also { speaker = it }
         s.stop()
         s.speak(SpeechTexts.summary(todos))
         s.remindDueTomorrow(db.findDueOn(LocalDate.now().plusDays(1)))
+    }
+
+    private companion object {
+        const val MENU_SPEAK = 1
     }
 }

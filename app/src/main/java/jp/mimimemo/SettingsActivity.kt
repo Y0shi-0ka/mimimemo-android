@@ -1,6 +1,8 @@
 package jp.mimimemo
 
 import android.os.Bundle
+import android.view.Menu
+import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.widget.doAfterTextChanged
 import com.google.android.material.chip.Chip
@@ -23,17 +25,32 @@ class SettingsActivity : AppCompatActivity() {
         binding.buttonAdd.setOnClickListener { addKeyword() }
         binding.editKeyword.onSubmit { addKeyword() }
         binding.editKeyword.doAfterTextChanged { binding.layoutKeyword.error = null }
-        binding.buttonReset.setOnClickListener {
-            MaterialAlertDialogBuilder(this)
-                .setMessage(R.string.reset_confirm)
-                .setPositiveButton(R.string.action_reset) { _, _ ->
-                    store.reset()
-                    render()
-                }
-                .setNegativeButton(R.string.cancel, null)
-                .show()
-        }
         render()
+    }
+
+    /** めったに使わない「初期値に戻す」は、上のバーのメニューに入れる（issue #29） */
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        menu.add(Menu.NONE, MENU_RESET, Menu.NONE, R.string.action_reset)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        MENU_RESET -> {
+            confirmReset()
+            true
+        }
+        else -> super.onOptionsItemSelected(item)
+    }
+
+    private fun confirmReset() {
+        MaterialAlertDialogBuilder(this)
+            .setMessage(R.string.reset_confirm)
+            .setPositiveButton(R.string.action_reset) { _, _ ->
+                store.reset()
+                render()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -54,7 +71,6 @@ class SettingsActivity : AppCompatActivity() {
 
     private fun render() {
         val words = store.load()
-        binding.textCount.text = getString(R.string.keyword_count, words.size)
         binding.chipGroup.removeAllViews()
         for (word in words) {
             val chip = Chip(this).apply {
@@ -67,5 +83,9 @@ class SettingsActivity : AppCompatActivity() {
             }
             binding.chipGroup.addView(chip)
         }
+    }
+
+    private companion object {
+        const val MENU_RESET = 1
     }
 }
