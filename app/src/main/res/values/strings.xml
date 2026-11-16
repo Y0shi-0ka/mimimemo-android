@@ -73,15 +73,13 @@
     <string name="cancel">キャンセル</string>
 
     <!-- ⑤ まとめ -->
-    <string name="summary_header">今日は %1$d 件のToDoを登録しました</string>
-    <string name="summary_note">ToDoに関係する発言だけを残しています。それ以外の会話や音声は保存していません。</string>
+    <string name="summary_empty">今日登録したToDoはありません</string>
 
     <!-- ⑥ 設定 -->
-    <string name="settings_description">ここにある言葉を含む文だけを、ToDoの候補として調べます。よく使う言い回し（例：「やっといて」）を追加してください。</string>
-    <string name="keyword_hint">追加するキーワード</string>
+    <string name="settings_description">この言葉を含む文を、ToDoの候補にします。</string>
+    <string name="keyword_hint">キーワードを追加</string>
     <string name="action_add_keyword">追加</string>
     <string name="keyword_exists">「%1$s」はすでに登録されています</string>
-    <string name="keyword_count">登録中のキーワード（%1$d）</string>
     <string name="action_reset">初期値に戻す</string>
     <string name="reset_confirm">キーワードを初期値に戻しますか？追加したキーワードは消えます。</string>
     <string name="tts_unavailable">日本語の読み上げが使えません。端末の設定で音声合成エンジンと日本語の音声データを確認してください。</string>
