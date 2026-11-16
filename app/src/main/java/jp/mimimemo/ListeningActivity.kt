@@ -46,13 +46,12 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     private val candidates = mutableListOf<Todo>()
     private var nextTempId = -1L
     private lateinit var candidateAdapter: TodoAdapter
-    private var addedCount = 0
     private var permissionRequested = false
     private var pulse: ObjectAnimator? = null
 
     private val requestMic =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) startListening() else showError(getString(R.string.mic_permission_denied))
+            if (granted) startListening() else showPermissionDenied()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -83,7 +82,6 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         binding.buttonStop.setOnClickListener { finish() }
         binding.buttonSend.setOnClickListener { sendManual() }
         binding.editManual.onSubmit { sendManual() }
-        updateAddedCount()
     }
 
     override fun onResume() {
@@ -132,30 +130,23 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     }
 
     override fun onStateChanged(state: SpeechController.State) {
-        val (label, active) = when (state) {
-            SpeechController.State.STARTING -> R.string.status_starting to true
-            SpeechController.State.LISTENING -> R.string.status_listening to true
-            SpeechController.State.HEARING -> R.string.status_hearing to true
-            SpeechController.State.STOPPED -> R.string.status_stopped to false
-            SpeechController.State.MODEL_DOWNLOADING -> R.string.status_model_downloading to false
-            SpeechController.State.MODEL_REQUIRED -> R.string.status_model_required to false
-        }
-        binding.textStatus.setText(label)
-        setIndicator(active)
         when (state) {
-            SpeechController.State.STOPPED -> return
-            SpeechController.State.MODEL_DOWNLOADING -> {
-                binding.textMode.setText(R.string.mode_model_downloading)
-                hideAction()
+            SpeechController.State.STARTING -> showStatus(R.string.status_starting, Indicator.ON)
+            SpeechController.State.LISTENING -> showStatus(R.string.status_listening, Indicator.ON)
+            // 文字は変えず、丸印の動きだけで声の検出を示す（issue #16）
+            SpeechController.State.HEARING -> showStatus(R.string.status_listening, Indicator.PULSE)
+            SpeechController.State.STOPPED -> {
+                binding.textStatus.setText(R.string.status_stopped)
+                setIndicator(Indicator.OFF)
             }
-            SpeechController.State.MODEL_REQUIRED -> {
-                binding.textMode.setText(R.string.mode_model_required)
-                showAction(R.string.action_download_model) { speech.requestModelDownload() }
-            }
-            else -> {
-                binding.textMode.setText(R.string.mode_on_device)
-                hideAction()
-            }
+            SpeechController.State.MODEL_DOWNLOADING ->
+                showNotice(R.string.status_model_downloading, getString(R.string.mode_model_downloading))
+            SpeechController.State.MODEL_REQUIRED ->
+                showNotice(
+                    R.string.status_model_required,
+                    getString(R.string.mode_model_required),
+                    R.string.action_download_model,
+                ) { speech.requestModelDownload() }
         }
     }
 
@@ -163,11 +154,10 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         when (error) {
             // 通常の認識には切り替えず、手入力だけで使う（issue #9）
             SpeechController.FatalError.OnDeviceUnavailable ->
-                showError(getString(R.string.error_on_device_unavailable), R.string.status_manual_only)
-            SpeechController.FatalError.PermissionDenied ->
-                showError(getString(R.string.mic_permission_denied))
+                showNotice(R.string.status_manual_only, getString(R.string.error_on_device_unavailable))
+            SpeechController.FatalError.PermissionDenied -> showPermissionDenied()
             is SpeechController.FatalError.Repeated ->
-                showError(getString(R.string.error_recognizer, error.code))
+                showNotice(R.string.status_stopped, getString(R.string.error_recognizer, error.code))
         }
     }
 
@@ -198,12 +188,8 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     private fun acceptCandidate(candidate: Todo, edited: Todo = candidate) {
         val index = removeCandidate(candidate) ?: return
         val id = db.insert(edited.copy(id = 0, createdAt = LocalDateTime.now()))
-        addedCount++
-        updateAddedCount()
         showUndo(getString(R.string.candidate_added, edited.title)) {
             db.delete(id)
-            addedCount--
-            updateAddedCount()
             addCandidate(candidate, index)
         }
     }
@@ -224,16 +210,13 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
 
     private fun renderCandidates(onCommitted: () -> Unit = {}) {
         candidateAdapter.submitList(candidates.toList(), onCommitted)
-        val any = candidates.isNotEmpty()
-        binding.listCandidates.isVisible = any
-        binding.textCandidatesHeader.isVisible = any
-        binding.textCandidatesHeader.text = getString(R.string.candidates_header, candidates.size)
+        binding.listCandidates.isVisible = candidates.isNotEmpty()
     }
 
     private fun showUndo(message: String, undo: () -> Unit) {
         Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG)
             .setAction(R.string.undo) { undo() }
-            .setAnchorView(binding.manualRow)
+            .setAnchorView(if (binding.manualRow.isVisible) binding.manualRow else binding.buttonStop)
             .show()
     }
 
@@ -285,7 +268,6 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
             val start = sb.length
             sb.append(l.text)
             if (l.candidate) {
-                sb.append("  ← ToDo候補")
                 sb.setSpan(ForegroundColorSpan(highlight), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                 sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
@@ -298,35 +280,46 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         binding.scrollTranscript.post { binding.scrollTranscript.fullScroll(android.view.View.FOCUS_DOWN) }
     }
 
-    private fun updateAddedCount() {
-        binding.textAdded.text = getString(R.string.added_count, addedCount)
+    private enum class Indicator { OFF, ON, PULSE }
+
+    /** 聞き取れている状態。説明や手入力の欄は出さない */
+    private fun showStatus(label: Int, indicator: Indicator) {
+        binding.textStatus.setText(label)
+        setIndicator(indicator)
+        binding.noticeCard.isVisible = false
+        binding.manualRow.isVisible = false
+        binding.textTranscript.setHint(R.string.transcript_hint)
     }
 
-    private fun showError(message: String, statusLabel: Int = R.string.status_stopped) {
-        binding.textStatus.setText(statusLabel)
-        binding.textMode.text = message
-        hideAction()
-        setIndicator(false)
+    /**
+     * 聞き取れない状態。理由と、あればできる操作のボタンを出す。
+     * この間も使えるよう、手入力の欄を出す。
+     */
+    private fun showNotice(status: Int, message: String, action: Int? = null, onAction: () -> Unit = {}) {
+        binding.textStatus.setText(status)
+        setIndicator(Indicator.OFF)
+        binding.textNotice.text = message
+        binding.buttonAction.isVisible = action != null
+        if (action != null) {
+            binding.buttonAction.setText(action)
+            binding.buttonAction.setOnClickListener { onAction() }
+        }
+        binding.noticeCard.isVisible = true
+        binding.manualRow.isVisible = true
+        binding.textTranscript.hint = null
     }
 
-    /** 状態カードの中に、いまできる操作のボタンを1つ出す */
-    private fun showAction(label: Int, onClick: () -> Unit) {
-        binding.buttonAction.setText(label)
-        binding.buttonAction.setOnClickListener { onClick() }
-        binding.buttonAction.isVisible = true
-    }
+    private fun showPermissionDenied() =
+        showNotice(R.string.status_stopped, getString(R.string.mic_permission_denied))
 
-    private fun hideAction() {
-        binding.buttonAction.isVisible = false
-    }
-
-    private fun setIndicator(active: Boolean) {
+    private fun setIndicator(indicator: Indicator) {
+        val active = indicator != Indicator.OFF
         val color = ContextCompat.getColor(this, if (active) R.color.listening else R.color.idle)
         binding.statusDot.backgroundTintList = ColorStateList.valueOf(color)
-        if (active) {
+        if (indicator == Indicator.PULSE) {
             if (pulse == null) {
                 pulse = ObjectAnimator.ofFloat(binding.statusDot, "alpha", 1f, 0.3f).apply {
-                    duration = 700
+                    duration = 500
                     repeatMode = ValueAnimator.REVERSE
                     repeatCount = ValueAnimator.INFINITE
                     start()
