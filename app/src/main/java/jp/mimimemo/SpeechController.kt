@@ -66,6 +66,9 @@ class SpeechController(
     /** ダウンロードの確認を出したか。画面に戻るたびに何度も出さないよう、自動で出すのは1回だけ */
     private var downloadRequested = false
     private var waitingModel = false
+
+    /** 「モデルは入っている」と返るのにエラー 13 が続いた回数 */
+    private var installedButUnavailable = 0
     private var consecutiveErrors = 0
     private val handler = Handler(Looper.getMainLooper())
 
@@ -87,6 +90,7 @@ class SpeechController(
         }
         running = true
         waitingModel = false
+        installedButUnavailable = 0
         consecutiveErrors = 0
         createRecognizer()
         listener.onStateChanged(State.STARTING)
@@ -155,7 +159,7 @@ class SpeechController(
             listener.onStateChanged(State.MODEL_DOWNLOADING)
             schedulePoll(POLL_AFTER_REQUEST_MS)
         } else {
-            schedulePoll(0)
+            schedulePoll(RESTART_DELAY_MS)
         }
     }
 
@@ -176,6 +180,10 @@ class SpeechController(
                 val pending = support.pendingOnDeviceLanguages.any(::isJapanese)
                 Log.d(TAG, "model: installed=$installed pending=$pending")
                 when {
+                    // 入っているはずなのに使えない状態が続く端末では、調べ続けて電池を使わないよう止める
+                    installed && ++installedButUnavailable > MAX_INSTALLED_RETRIES ->
+                        fatal(FatalError.OnDeviceUnavailable)
+
                     installed -> {
                         waitingModel = false
                         listener.onStateChanged(State.STARTING)
@@ -202,6 +210,12 @@ class SpeechController(
         })
     }
 
+    /** 認識が実際に動いた（無音・結果が返った）ので、モデル待ちを終える */
+    private fun modelIsWorking() {
+        waitingModel = false
+        installedButUnavailable = 0
+    }
+
     private fun isJapanese(tag: String) = tag.startsWith("ja", ignoreCase = true)
 
     private fun fatal(error: FatalError) {
@@ -225,7 +239,7 @@ class SpeechController(
 
     override fun onResults(results: Bundle?) {
         consecutiveErrors = 0
-        waitingModel = false
+        modelIsWorking()
         val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim()
         if (!text.isNullOrEmpty()) listener.onSentence(text)
         listener.onStateChanged(State.LISTENING)
@@ -239,6 +253,8 @@ class SpeechController(
             // 無音・聞き取れなかった：そのまま次を聞く
             SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
                 consecutiveErrors = 0
+                modelIsWorking()
+                listener.onStateChanged(State.LISTENING)
                 restart()
             }
 
@@ -270,6 +286,7 @@ class SpeechController(
     private companion object {
         const val TAG = "MimiMemo"
         const val POLL_INTERVAL_MS = 2000L
+        const val MAX_INSTALLED_RETRIES = 3
 
         /** 確認の画面が出るまで少しかかるので、頼んだ直後は「まだ始まっていない」と判定しないよう待つ */
         const val POLL_AFTER_REQUEST_MS = 4000L
