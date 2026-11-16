@@ -11,23 +11,51 @@ import java.time.temporal.TemporalAdjusters
  *
  * 上にある規則ほど優先する。曜日だけ（「金曜まで」）は基準日より後の、いちばん近いその曜日とする。
  * 週は月曜はじまりとして数える。
+ *
+ * 音声認識の結果は「十一月二十日」「三日後」のように漢数字で返ることがあるので、
+ * 日付の単位の前にある漢数字は算用数字に直してから調べる（issue #22）。
  */
 class DateParser {
 
-    /** 見つかった日付と、文中で日付表現が占める範囲 */
-    data class Match(val date: LocalDate, val range: IntRange)
+    /**
+     * 見つかった日付と、日付表現が占める範囲。
+     * 範囲は [text]（漢数字を直したあとの文）での位置。元の文とは文字数が違うことがある。
+     */
+    data class Match(val date: LocalDate, val range: IntRange, val text: String)
 
     fun parse(text: String, base: LocalDate): LocalDate? = find(text, base)?.date
 
     fun find(text: String, base: LocalDate): Match? {
-        val s = normalize(text)
+        val s = normalizeNumerals(normalize(text))
         for (rule in rules) {
             for (m in rule.regex.findAll(s)) {
                 val date = rule.toDate(m, base) ?: continue
-                return Match(date, m.range)
+                return Match(date, m.range, s)
             }
         }
         return null
+    }
+
+    /**
+     * 日付の単位（月・日・週間・か月）の前にある漢数字を算用数字に直す。
+     * 「三人で」「一日中」のように日付でない数はそのままにする。
+     */
+    internal fun normalizeNumerals(text: String): String =
+        KANJI_BEFORE_UNIT.replace(text) { m -> kanjiToInt(m.value)?.toString() ?: m.value }
+
+    /** 「二十五」→25、「十」→10、「三」→3。99 までを扱い、読めなければ null */
+    private fun kanjiToInt(kanji: String): Int? {
+        val tenAt = kanji.indexOf('十')
+        if (tenAt < 0) {
+            // 「二〇」のように位取りで書いたもの
+            if (kanji.length > 2) return null
+            return kanji.fold(0) { acc, c -> acc * 10 + KANJI_DIGITS.indexOf(c) }
+        }
+        if (kanji.indexOf('十', tenAt + 1) >= 0 || tenAt > 1 || kanji.length - tenAt > 2) return null
+        val tens = if (tenAt == 0) 1 else KANJI_DIGITS.indexOf(kanji[0])
+        val ones = if (tenAt == kanji.length - 1) 0 else KANJI_DIGITS.indexOf(kanji[tenAt + 1])
+        if (tens <= 0 || ones < 0) return null
+        return tens * 10 + ones
     }
 
     private class Rule(val regex: Regex, val toDate: (MatchResult, LocalDate) -> LocalDate?)
@@ -114,7 +142,7 @@ class DateParser {
         else -> DayOfWeek.SUNDAY
     }
 
-    /** 全角数字・全角スラッシュを半角にする（文字数は変えないので範囲はそのまま使える）。 */
+    /** 全角数字・全角スラッシュを半角にする。 */
     private fun normalize(text: String): String = buildString(text.length) {
         for (c in text) {
             append(
@@ -125,5 +153,13 @@ class DateParser {
                 }
             )
         }
+    }
+
+    private companion object {
+        const val KANJI_DIGITS = "〇一二三四五六七八九"
+
+        /** 月（月曜の月は除く）・日（一日中、日曜などは除く）・週間・か月の前にある漢数字 */
+        val KANJI_BEFORE_UNIT =
+            Regex("[〇一二三四五六七八九十]+(?=月(?!曜)|日(?![中曜本々])|週間|[かヶケカ]月)")
     }
 }

@@ -54,6 +54,7 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     /** 確認待ちの候補（新しいものが先頭）。DB にはまだ入っていないので id は負の仮番号 */
     private val candidates = mutableListOf<Todo>()
     private var nextTempId = -1L
+    private val deduper = CandidateDeduper()
     private lateinit var candidateAdapter: TodoAdapter
     private var permissionRequested = false
     private var pulse: ObjectAnimator? = null
@@ -78,7 +79,7 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         db = TodoDbHelper(this)
         val keywords = KeywordStore(this)
         extractor = TodoExtractor(keywords = keywords::load, ai = UnavailableLocalAiClient)
-        speech = SpeechController(this, this)
+        speech = SpeechController(this, this, vocabulary = { TodoExtractor.vocabulary(keywords.load()) })
 
         candidateAdapter = TodoAdapter(onClick = ::showCandidateDialog)
         binding.listCandidates.layoutManager = LinearLayoutManager(this)
@@ -196,7 +197,8 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
 
     private fun handleSentence(text: String) {
         lifecycleScope.launch {
-            val todo = extractor.extract(text)
+            // 言い直し・聞き返しで同じ内容がまた来たら、候補は増やさない
+            val todo = extractor.extract(text)?.takeIf { deduper.isNew(it) }
             addLine(Line(text, todo != null))
             if (todo != null) addCandidate(todo.copy(id = nextTempId--))
         }
