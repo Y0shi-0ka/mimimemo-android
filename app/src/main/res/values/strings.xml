@@ -29,7 +29,9 @@
     <string name="swipe_delete">削除</string>
     <string name="swipe_add">追加</string>
     <string name="swipe_reject">却下</string>
-    <string name="mic_permission_denied">マイクの使用が許可されていないため、聞き取りはできません。設定アプリから許可できます。</string>
+    <string name="mic_permission_denied">聞き取るには、マイクの許可が必要です。</string>
+    <string name="status_mic_denied">マイクが使えません</string>
+    <string name="action_allow_mic">マイクを許可する</string>
     <string name="source_quote">「%1$s」</string>
 
     <!-- ② 聞き取り -->

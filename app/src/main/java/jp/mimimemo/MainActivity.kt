@@ -1,14 +1,10 @@
 package jp.mimimemo
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -25,15 +21,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var extractor: TodoExtractor
     private var speaker: ReminderSpeaker? = null
     private val prefs by lazy { getSharedPreferences(PREFS, MODE_PRIVATE) }
-
-    private val requestMic =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (!granted) {
-                Snackbar.make(binding.root, R.string.mic_permission_denied, Snackbar.LENGTH_LONG)
-                    .setAnchorView(binding.fabListen)
-                    .show()
-            }
-        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -67,8 +54,6 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, ListeningActivity::class.java))
         }
         binding.buttonSpeakReminder.setOnClickListener { speakReminder() }
-
-        askMicPermissionOnFirstLaunch()
     }
 
     override fun onResume() {
@@ -184,19 +169,10 @@ class MainActivity : AppCompatActivity() {
         if (speakReminder()) prefs.edit { putString(KEY_LAST_REMIND, today) }
     }
 
-    private fun askMicPermissionOnFirstLaunch() {
-        if (prefs.getBoolean(KEY_ASKED_MIC, false)) return
-        prefs.edit { putBoolean(KEY_ASKED_MIC, true) }
-        val granted = ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) ==
-            PackageManager.PERMISSION_GRANTED
-        if (!granted) requestMic.launch(Manifest.permission.RECORD_AUDIO)
-    }
-
     private companion object {
         const val MENU_SUMMARY = 1
         const val MENU_SETTINGS = 2
         const val PREFS = "main"
         const val KEY_LAST_REMIND = "last_remind_date"
-        const val KEY_ASKED_MIC = "asked_mic_permission"
     }
 }
