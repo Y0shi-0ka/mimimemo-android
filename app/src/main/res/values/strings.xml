@@ -41,6 +41,8 @@
     <string name="status_manual_only">手入力のみ</string>
     <string name="transcript_hint">会話を端末の中だけで文字にします。音声は保存しません。\n\nToDoが見つかるとカードが出ます。\n右へスワイプで追加、左で却下。</string>
     <string name="action_stop">停止</string>
+    <string name="stopped_for_silence">しばらく声がなかったので、聞き取りを止めました。</string>
+    <string name="action_resume">再開する</string>
     <string name="manual_hint">文を入力</string>
     <string name="action_send">送信</string>
     <string name="error_on_device_unavailable">この端末は、端末の中だけでの音声認識に対応していません。会話を外部に送らないため、聞き取りは行いません。下の欄に文を入力すると、ToDoを探せます。</string>

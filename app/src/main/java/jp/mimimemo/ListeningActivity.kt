@@ -8,12 +8,15 @@ import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.WindowManager
 import android.widget.ArrayAdapter
 import androidx.activity.result.contract.ActivityResultContracts
@@ -34,6 +37,9 @@ import java.time.LocalDateTime
  * この画面を表示している間だけ聞き取り、離れると止める（onPause）。
  * ToDo の候補は聞き取りを止めずにカードで並べ、右スワイプで追加・左スワイプで却下する。
  * カードをタップすると ③ 確認ダイアログで詳細を直してから追加できる（issue #12）。
+ *
+ * 聞き取り中は画面を点けたままにするので、電池を使いすぎないようにしている（issue #21）：
+ * しばらく触れなければ画面を暗くし、声がないまま長く経ったら聞き取りを止める。
  */
 class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
 
@@ -52,6 +58,12 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     private var permissionRequested = false
     private var pulse: ObjectAnimator? = null
 
+    /** 聞き取りが動いている間だけ true。画面を点けたままにするのはこの間だけ */
+    private var listeningActive = false
+    private val timers = Handler(Looper.getMainLooper())
+    private val dimScreen = Runnable { setDimmed(true) }
+    private val stopForSilence = Runnable { stopBecauseSilent() }
+
     private val requestMic =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
             if (granted) startListening() else showPermissionDenied()
@@ -62,7 +74,6 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         binding = ActivityListeningBinding.inflate(layoutInflater)
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
 
         db = TodoDbHelper(this)
         val keywords = KeywordStore(this)
@@ -104,8 +115,15 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     }
 
     override fun onDestroy() {
+        timers.removeCallbacksAndMessages(null)
         db.close()
         super.onDestroy()
+    }
+
+    /** 触れたら画面の明るさを戻し、暗くするまでの時間を数え直す */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        if (ev.actionMasked == MotionEvent.ACTION_DOWN) wakeScreen()
+        return super.dispatchTouchEvent(ev)
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -123,11 +141,13 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     // ---- SpeechController.ResultListener ----
 
     override fun onSentence(text: String) {
+        restartSilenceTimer()
         binding.textPartial.text = ""
         handleSentence(text)
     }
 
     override fun onPartial(text: String) {
+        restartSilenceTimer()
         binding.textPartial.text = text
         scrollToBottom()
     }
@@ -141,6 +161,7 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
             SpeechController.State.STOPPED -> {
                 binding.textStatus.setText(R.string.status_stopped)
                 setIndicator(Indicator.OFF)
+                setListeningActive(false)
             }
             SpeechController.State.MODEL_DOWNLOADING ->
                 showNotice(R.string.status_model_downloading, getString(R.string.mode_model_downloading))
@@ -183,6 +204,7 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
 
     private fun addCandidate(candidate: Todo, index: Int = 0) {
         candidates.add(index.coerceIn(0, candidates.size), candidate)
+        wakeScreen()
         // 差分の反映は非同期なので、反映が終わってから先頭（いちばん新しい候補）を見せる
         renderCandidates { binding.listCandidates.scrollToPosition(0) }
     }
@@ -289,6 +311,7 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     private fun showStatus(label: Int, indicator: Indicator) {
         binding.textStatus.setText(label)
         setIndicator(indicator)
+        setListeningActive(true)
         binding.noticeCard.isVisible = false
         binding.manualRow.isVisible = false
         binding.textTranscript.setHint(R.string.transcript_hint)
@@ -301,6 +324,7 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     private fun showNotice(status: Int, message: String, action: Int? = null, onAction: () -> Unit = {}) {
         binding.textStatus.setText(status)
         setIndicator(Indicator.OFF)
+        setListeningActive(false)
         binding.textNotice.text = message
         binding.buttonAction.isVisible = action != null
         if (action != null) {
@@ -328,6 +352,47 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
             }
         }
 
+    // ---- 省電力（issue #21） ----
+
+    private fun setListeningActive(active: Boolean) {
+        if (listeningActive == active) return
+        listeningActive = active
+        if (active) {
+            window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            restartSilenceTimer()
+        } else {
+            window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+            timers.removeCallbacks(stopForSilence)
+        }
+        wakeScreen()
+    }
+
+    /** 画面の明るさを戻す。聞き取り中なら、しばらく触れなければまた暗くする */
+    private fun wakeScreen() {
+        setDimmed(false)
+        timers.removeCallbacks(dimScreen)
+        if (listeningActive) timers.postDelayed(dimScreen, DIM_AFTER_MS)
+    }
+
+    private fun setDimmed(dimmed: Boolean) {
+        val target = if (dimmed) DIM_BRIGHTNESS else WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+        if (window.attributes.screenBrightness == target) return
+        window.attributes = window.attributes.apply { screenBrightness = target }
+    }
+
+    private fun restartSilenceTimer() {
+        timers.removeCallbacks(stopForSilence)
+        if (listeningActive) timers.postDelayed(stopForSilence, SILENCE_STOP_MS)
+    }
+
+    /** 声がないまま長く経ったので止める。画面も点けたままにしなくなる */
+    private fun stopBecauseSilent() {
+        speech.stop()
+        showNotice(R.string.status_stopped, getString(R.string.stopped_for_silence), R.string.action_resume) {
+            startListening()
+        }
+    }
+
     private fun setIndicator(indicator: Indicator) {
         val active = indicator != Indicator.OFF
         val color = ContextCompat.getColor(this, if (active) R.color.listening else R.color.idle)
@@ -350,5 +415,12 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
 
     private companion object {
         const val MAX_LINES = 30
+
+        /** 触れずにこの時間が経ったら画面を暗くする */
+        const val DIM_AFTER_MS = 20_000L
+        const val DIM_BRIGHTNESS = 0.01f
+
+        /** 声がないままこの時間が経ったら聞き取りを止める */
+        const val SILENCE_STOP_MS = 10 * 60_000L
     }
 }
