@@ -13,11 +13,14 @@ import java.time.LocalDate
 
 /**
  * ToDo をカードで一覧表示する。
+ * やることと期限を主にし、期限がない・タグが「その他」のときはその表示ごと出さない（issue #20）。
  * @param onDoneChanged null のときはチェックボックスを出さない
+ * @param showSource 元の発言も出す（今日のまとめ用）
  */
 class TodoAdapter(
     private val onClick: (Todo) -> Unit,
     private val onDoneChanged: ((Todo, Boolean) -> Unit)? = null,
+    private val showSource: Boolean = false,
 ) : ListAdapter<Todo, TodoAdapter.ViewHolder>(DIFF) {
 
     class ViewHolder(val binding: ItemTodoBinding) : RecyclerView.ViewHolder(binding.root)
@@ -37,6 +40,7 @@ class TodoAdapter(
             b.textTitle.paintFlags and Paint.STRIKE_THRU_TEXT_FLAG.inv()
         }
 
+        b.textDue.isVisible = todo.due != null
         b.textDue.text = DueFormatter.format(todo.due, today)
         val urgent = !todo.done && todo.due != null && !todo.due.isAfter(today.plusDays(1))
         b.textDue.setTextColor(
@@ -46,9 +50,11 @@ class TodoAdapter(
                 else com.google.android.material.R.attr.colorOnSurfaceVariant,
             )
         )
+        b.textTag.isVisible = todo.tag != Todo.TAG_OTHER
         b.textTag.text = todo.tag
+        b.rowMeta.isVisible = b.textDue.isVisible || b.textTag.isVisible
 
-        b.textSource.isVisible = !todo.sourceText.isNullOrBlank()
+        b.textSource.isVisible = showSource && !todo.sourceText.isNullOrBlank()
         b.textSource.text = b.root.context.getString(R.string.source_quote, todo.sourceText.orEmpty())
 
         b.checkDone.isVisible = onDoneChanged != null

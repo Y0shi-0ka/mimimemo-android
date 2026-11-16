@@ -23,7 +23,7 @@ class SummaryActivity : AppCompatActivity() {
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         db = TodoDbHelper(this)
-        adapter = TodoAdapter(onClick = { startActivity(TodoEditActivity.intent(this, it.id)) })
+        adapter = TodoAdapter(onClick = { startActivity(TodoEditActivity.intent(this, it.id)) }, showSource = true)
         binding.listView.layoutManager = LinearLayoutManager(this)
         binding.listView.adapter = adapter
         binding.buttonSpeak.setOnClickListener { speakSummary() }
