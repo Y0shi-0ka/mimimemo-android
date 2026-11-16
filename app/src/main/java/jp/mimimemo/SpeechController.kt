@@ -29,6 +29,8 @@ import androidx.annotation.RequiresApi
 class SpeechController(
     private val context: Context,
     private val listener: ResultListener,
+    /** 聞き取りやすくしたい言葉（キーワード辞書など）。聞き取りを始めるたびに読む */
+    private val vocabulary: () -> List<String> = { emptyList() },
 ) : RecognitionListener {
 
     interface ResultListener {
@@ -91,6 +93,15 @@ class SpeechController(
         running = true
         waitingModel = false
         installedButUnavailable = 0
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // 語彙のヒント。対応していない認識器は無視する
+            val words = vocabulary().take(MAX_BIASING_WORDS)
+            if (words.isNotEmpty()) {
+                recognizeIntent.putStringArrayListExtra(RecognizerIntent.EXTRA_BIASING_STRINGS, ArrayList(words))
+            } else {
+                recognizeIntent.removeExtra(RecognizerIntent.EXTRA_BIASING_STRINGS)
+            }
+        }
         consecutiveErrors = 0
         createRecognizer()
         listener.onStateChanged(State.STARTING)
@@ -285,6 +296,7 @@ class SpeechController(
         const val TAG = "MimiMemo"
         const val POLL_INTERVAL_MS = 2000L
         const val MAX_INSTALLED_RETRIES = 3
+        const val MAX_BIASING_WORDS = 100
 
         /** 確認の画面が出るまで少しかかるので、頼んだ直後は「まだ始まっていない」と判定しないよう待つ */
         const val POLL_AFTER_REQUEST_MS = 4000L

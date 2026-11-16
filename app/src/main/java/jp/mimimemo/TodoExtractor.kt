@@ -59,7 +59,8 @@ class TodoExtractor(
         val text = sentence.trim()
         val match = parser.find(text, today())
         return Todo(
-            title = makeTitle(text, match?.range),
+            // 日付が見つかったときの範囲は、漢数字を直したあとの文での位置
+            title = makeTitle(match?.text ?: text, match?.range),
             due = match?.date,
             tag = guessTag(text),
             sourceText = text,
@@ -98,6 +99,13 @@ class TodoExtractor(
         TAG_RULES.firstOrNull { (_, words) -> words.any { text.contains(it) } }?.first ?: Todo.TAG_OTHER
 
     companion object {
+        /**
+         * 音声認識に渡す語彙のヒント（issue #22）。
+         * キーワード辞書の言葉と、タグの推定に使う言葉（レポート・ゼミ・シフトなど）を渡して聞き取りやすくする。
+         */
+        fun vocabulary(keywords: List<String>): List<String> =
+            (keywords + TAG_RULES.flatMap { it.second }).map { it.trim() }.filter { it.isNotEmpty() }.distinct()
+
         /** キーワード辞書の初期値（設定画面で追加・削除できる） */
         val DEFAULT_KEYWORDS = listOf(
             "までに", "締め切り", "締切", "提出", "しといて", "しておいて",
