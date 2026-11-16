@@ -193,10 +193,8 @@ class SpeechController(
                         listener.onStateChanged(State.MODEL_DOWNLOADING)
                         schedulePoll(POLL_INTERVAL_MS)
                     }
-                    else -> {
-                        listener.onStateChanged(State.MODEL_REQUIRED)
-                        schedulePoll(POLL_INTERVAL_MS)
-                    }
+                    // ダウンロードが始まっていない。頼み直されるまで調べ続けない（電池を使わない）
+                    else -> listener.onStateChanged(State.MODEL_REQUIRED)
                 }
             }
 
