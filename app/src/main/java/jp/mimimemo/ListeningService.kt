@@ -176,7 +176,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
 
     private fun addSentence(text: String) {
         val id = ListeningHub.addLine(text)
-        batch.add(text)
+        batch.add(text, LocalDate.now())
         batchLineIds += id
         if (batch.size == 1) handler.postDelayed(flushBatch, BATCH_MS)
         ListeningHub.setPending(batch.size)
@@ -193,9 +193,9 @@ class ListeningService : Service(), SpeechController.ResultListener {
             return
         }
         scope.launch {
-            val found = context.map { null } + sentences.map { extractor.extract(it) }
-            val today = LocalDate.now()
-            val filled = SentenceBatch.fillDueFromContext(context + sentences, found) { parser.parse(it, today) }
+            // 期限は、その文を聞いた日を基準に数える（日付をまたいでもずれない、#60）
+            val found = context.map { null } + sentences.map { extractor.extract(it.text, it.on) }
+            val filled = SentenceBatch.fillDueFromContext(context + sentences, found) { parser.parse(it.text, it.on) }
                 .drop(context.size)
             val marked = mutableSetOf<Long>()
             filled.forEachIndexed { i, todo ->

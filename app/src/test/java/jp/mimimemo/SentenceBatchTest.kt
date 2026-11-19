@@ -12,14 +12,19 @@ class SentenceBatchTest {
     private val parser = DateParser()
     private val extractor = TodoExtractor(keywords = { TodoExtractor.DEFAULT_KEYWORDS }, today = { today })
 
-    private fun collect(sentences: List<String>, context: List<String> = emptyList()): List<Todo?> {
+    private fun heard(texts: List<String>, on: LocalDate = today) = texts.map { SentenceBatch.Heard(it, on) }
+
+    private fun collect(sentences: List<String>, context: List<String> = emptyList()): List<Todo?> =
+        collectHeard(heard(sentences), heard(context))
+
+    private fun collectHeard(sentences: List<SentenceBatch.Heard>, context: List<SentenceBatch.Heard> = emptyList()): List<Todo?> {
         val all = context + sentences
-        val todos = context.map { null } + sentences.map { extractor.extractByRuleOrNull(it) }
-        return SentenceBatch.fillDueFromContext(all, todos) { parser.parse(it, today) }.drop(context.size)
+        val todos = context.map { null } + sentences.map { extractor.extractByRuleOrNull(it.text, it.on) }
+        return SentenceBatch.fillDueFromContext(all, todos) { parser.parse(it.text, it.on) }.drop(context.size)
     }
 
-    private fun TodoExtractor.extractByRuleOrNull(text: String): Todo? =
-        if (TodoExtractor.DEFAULT_KEYWORDS.any { text.contains(it) }) extractByRule(text) else null
+    private fun TodoExtractor.extractByRuleOrNull(text: String, on: LocalDate): Todo? =
+        if (TodoExtractor.DEFAULT_KEYWORDS.any { text.contains(it) }) extractByRule(text, on) else null
 
     @Test
     fun dueFromPreviousSentence() {
@@ -53,8 +58,8 @@ class SentenceBatchTest {
         batch.drain()
         batch.add("スライド作っといて")
         val (context, sentences) = batch.drain()
-        assertEquals(listOf("明日が締め切りの話", "えーと"), context)
-        val r = collect(sentences, context)
+        assertEquals(listOf("明日が締め切りの話", "えーと"), context.map { it.text })
+        val r = collectHeard(sentences.map { it.copy(on = today) }, context.map { it.copy(on = today) })
         assertEquals(LocalDate.of(2026, 11, 12), r[0]?.due)
     }
 
@@ -65,5 +70,21 @@ class SentenceBatchTest {
         assertEquals(1, batch.size)
         batch.drain()
         assertEquals(0, batch.size)
+    }
+
+    @Test
+    fun dueCountsFromTheDayItWasHeard() {
+        // 23:58 に聞いた「明日まで」を、日付が変わってからまとめても期限はずれない（#60）
+        val heardOn = LocalDate.of(2026, 11, 11)
+        val r = collectHeard(listOf(SentenceBatch.Heard("明日までにレポート出しといて", heardOn)))
+        assertEquals(LocalDate.of(2026, 11, 12), r[0]?.due)
+        // 前の文から補うときも、その文を聞いた日で数える
+        val r2 = collectHeard(
+            listOf(
+                SentenceBatch.Heard("明日が提出の日です", heardOn),
+                SentenceBatch.Heard("スライド作っといて", heardOn.plusDays(1)),
+            )
+        )
+        assertEquals(LocalDate.of(2026, 11, 12), r2[1]?.due)
     }
 }

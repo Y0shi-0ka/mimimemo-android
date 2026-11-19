@@ -17,13 +17,16 @@ class TodoExtractor(
     private val today: () -> LocalDate = { LocalDate.now() },
 ) {
 
-    /** ToDo の候補が見つかれば返し、見つからなければ null を返す。 */
-    suspend fun extract(sentence: String): Todo? {
+    /**
+     * ToDo の候補が見つかれば返し、見つからなければ null を返す。
+     * @param on 「明日」などを数える基準の日。聞いた日を渡す（issue #60）
+     */
+    suspend fun extract(sentence: String, on: LocalDate = today()): Todo? {
         val text = sentence.trim()
         if (!isCandidate(text)) return null
         // 「来週月曜が提出の日です」のように期限を伝えるだけの文は候補にしない（issue #39）。
         // その期限は、5分まとめで前後の文に補う手がかりとして使われる
-        if (isDateNotice(text)) return null
+        if (isDateNotice(text, on)) return null
 
         if (ai.isAvailable()) {
             val result = try {
@@ -32,10 +35,10 @@ class TodoExtractor(
                 throw e
             } catch (e: Exception) {
                 // AI の失敗はルール抽出で補う
-                return extractByRule(text)
+                return extractByRule(text, on)
             }
             if (result == null || result.title.isBlank()) return null
-            val base = today()
+            val base = on
             return Todo(
                 title = result.title.trim(),
                 due = result.dueText?.let { parser.parse(it, base) } ?: parser.parse(text, base),
@@ -43,15 +46,15 @@ class TodoExtractor(
                 sourceText = text,
             )
         }
-        return extractByRule(text)
+        return extractByRule(text, on)
     }
 
     /**
      * 期限を伝えるだけの文か。日付を取り除くと「提出日」「締め切り」などしか残らない文をそうみなす。
      * 「レポートの締め切りは金曜」のように、やることが残る文は含めない。
      */
-    internal fun isDateNotice(sentence: String): Boolean {
-        val match = parser.find(sentence, today()) ?: return false
+    internal fun isDateNotice(sentence: String, on: LocalDate = today()): Boolean {
+        val match = parser.find(sentence, on) ?: return false
         var core = match.text.removeRange(match.range).replace(NOTICE_NOISE, "")
         var prev: String
         do {
@@ -73,9 +76,9 @@ class TodoExtractor(
     fun fromManualInput(text: String): Todo = extractByRule(text).copy(sourceText = null)
 
     /** キーワードと日付表現のルールだけで取り出す。 */
-    internal fun extractByRule(sentence: String): Todo {
+    internal fun extractByRule(sentence: String, on: LocalDate = today()): Todo {
         val text = sentence.trim()
-        val match = parser.find(text, today())
+        val match = parser.find(text, on)
         return Todo(
             // 日付が見つかったときの範囲は、漢数字を直したあとの文での位置
             title = makeTitle(match?.text ?: text, match?.range),
