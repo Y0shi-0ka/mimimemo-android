@@ -465,11 +465,13 @@ class ListeningActivity : AppCompatActivity() {
         val b = DialogCandidateBinding.inflate(LayoutInflater.from(this))
         var due = candidate.due
         var tag = candidate.tag
+        var repeat = candidate.repeat
 
         b.editTitle.setText(candidate.title)
         // 期限・タグは札を1タップで選ぶ（#47）
         ChoiceChips.bindDue(b.chipsDue, due) { due = it }
         ChoiceChips.bindTag(b.chipsTag, TagStore(this).all().let { if (tag in it) it else it + tag }, tag) { tag = it }
+        ChoiceChips.bindRepeat(b.chipsRepeat, repeat) { repeat = it }
         b.textSource.text = getString(R.string.source_quote, candidate.sourceText.orEmpty())
 
         MaterialAlertDialogBuilder(this)
@@ -477,7 +479,9 @@ class ListeningActivity : AppCompatActivity() {
             .setView(b.root)
             .setPositiveButton(R.string.candidate_add) { _, _ ->
                 val title = b.editTitle.text?.toString()?.trim().orEmpty().ifEmpty { candidate.title }
-                acceptCandidate(candidate, candidate.copy(title = title, due = due, tag = tag))
+                // 繰り返すのに期限がなければ今日から（#127）
+                val dueOrToday = due ?: if (repeat != null) java.time.LocalDate.now() else null
+                acceptCandidate(candidate, candidate.copy(title = title, due = dueOrToday, tag = tag, repeat = repeat))
             }
             .setNegativeButton(R.string.candidate_reject) { _, _ -> rejectCandidate(candidate) }
             .show()
