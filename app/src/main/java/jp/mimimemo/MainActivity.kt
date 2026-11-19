@@ -96,6 +96,8 @@ class MainActivity : AppCompatActivity() {
         // ウィジェットを置いたら「ホーム画面に置く」を消す
         invalidateOptionsMenu()
         remindOncePerDay()
+        // 朝の期限のお知らせを予約しておく（同じものは1つにまとまる、#100）
+        MorningReminder.schedule(this)
     }
 
     override fun onStop() {
