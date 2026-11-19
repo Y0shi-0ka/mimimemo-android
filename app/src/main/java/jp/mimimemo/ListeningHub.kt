@@ -1,5 +1,6 @@
 package jp.mimimemo
 
+import android.content.Context
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
@@ -7,7 +8,8 @@ import kotlinx.coroutines.flow.update
 /**
  * 聞き取りの状態・文字起こし・確認待ちの候補を、サービスと画面で共有する（issue #44）。
  * 聞き取りは [ListeningService] が受け持ち、画面はここを見て表示するだけ。
- * プロセスの中にだけあり、保存はしない（アプリが終われば消える）。
+ * 文字起こしはプロセスの中にだけあり、保存しない（アプリが終われば消える）。
+ * 決める前の候補だけは [CandidateStore] に残し、アプリが止められても消えないようにする（issue #55）。
  */
 object ListeningHub {
 
@@ -47,6 +49,26 @@ object ListeningHub {
 
     private var nextLineId = 1L
     private var nextTempId = -1L
+    private var store: CandidateStore? = null
+
+    /**
+     * 画面・サービスの onCreate で呼ぶ。最初の1回だけ、残してある候補を読み戻す。
+     */
+    fun attach(context: Context) {
+        if (store != null) return
+        val s = CandidateStore(context)
+        store = s
+        val saved = s.load()
+        if (_candidates.value.isEmpty() && saved.isNotEmpty()) {
+            _candidates.value = saved
+            nextTempId = minOf(-1L, saved.minOf { it.id } - 1)
+        }
+    }
+
+    private fun updateCandidates(change: (List<Todo>) -> List<Todo>) {
+        _candidates.update(change)
+        store?.save(_candidates.value)
+    }
 
     internal fun setStatus(status: Status) {
         _status.value = status
@@ -74,20 +96,20 @@ object ListeningHub {
 
     /** 候補を束の後ろに足す。触っている最中のカードは入れ替えない */
     internal fun addCandidate(todo: Todo) {
-        _candidates.update { it + todo.copy(id = nextTempId--) }
+        updateCandidates { it + todo.copy(id = nextTempId--) }
     }
 
     /** 候補を束から外して、元の位置を返す（元に戻すときに使う） */
     fun removeCandidate(candidate: Todo): Int? {
         val index = _candidates.value.indexOfFirst { it.id == candidate.id }
         if (index < 0) return null
-        _candidates.update { it.filterNot { c -> c.id == candidate.id } }
+        updateCandidates { it.filterNot { c -> c.id == candidate.id } }
         return index
     }
 
     /** 元に戻す：外した候補を元の位置に戻す */
     fun restoreCandidate(candidate: Todo, index: Int) {
-        _candidates.update { list -> list.toMutableList().apply { add(index.coerceIn(0, size), candidate) } }
+        updateCandidates { list -> list.toMutableList().apply { add(index.coerceIn(0, size), candidate) } }
     }
 
     private const val MAX_LINES = 30
