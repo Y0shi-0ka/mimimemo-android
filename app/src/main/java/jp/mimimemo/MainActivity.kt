@@ -4,6 +4,10 @@ import android.appwidget.AppWidgetManager
 import androidx.activity.OnBackPressedCallback
 import android.content.ComponentName
 import android.content.Intent
+import android.view.View
+import android.widget.PopupMenu
+import java.time.DayOfWeek
+import java.time.temporal.TemporalAdjusters
 import android.content.res.Configuration
 import android.view.Gravity
 import android.widget.LinearLayout
@@ -54,6 +58,7 @@ class MainActivity : AppCompatActivity() {
             tagFilter = tag
             refresh()
         }
+        adapter.onLongPress = ::showPostponeMenu
         binding.filterChip.setOnClickListener { clearFilter() }
         binding.filterChip.setOnCloseIconClickListener { clearFilter() }
         // 絞り込み中の「戻る」は、閉じずに絞り込みを外す
@@ -158,6 +163,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var tagFilter: String? = null
+
+    /** 長押しで期限を延ばす：明日・来週月曜・期限なし（#131）。元に戻せる */
+    private fun showPostponeMenu(todo: Todo, anchor: View) {
+        val today = LocalDate.now()
+        val options = listOf(
+            getString(R.string.postpone_tomorrow) to today.plusDays(1),
+            getString(R.string.postpone_next_monday) to today.with(TemporalAdjusters.next(DayOfWeek.MONDAY)),
+            getString(R.string.postpone_none) to null,
+        // 繰り返しの ToDo は期限がないと次へ進められないので、期限なしは出さない
+        ).filter { todo.repeat == null || it.second != null }
+        PopupMenu(this, anchor).apply {
+            options.forEachIndexed { i, (label, _) -> menu.add(Menu.NONE, i, i, label) }
+            setOnMenuItemClickListener { item ->
+                val due = options[item.itemId].second
+                db.update(todo.copy(due = due))
+                refresh()
+                val message = due?.let { getString(R.string.postponed_to, todo.title, DueFormatter.short(it)) }
+                    ?: getString(R.string.postponed_none, todo.title)
+                showUndo(message) {
+                    db.update(todo)
+                    refresh()
+                }
+                true
+            }
+            show()
+        }
+    }
 
     /**
      * 横向きでは高さが足りず、下のマイクと札で一覧がほとんど見えなくなる（#129）。

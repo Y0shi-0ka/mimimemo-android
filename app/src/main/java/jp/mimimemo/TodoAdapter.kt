@@ -3,6 +3,7 @@ package jp.mimimemo
 import android.content.res.ColorStateList
 import android.graphics.Paint
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.content.ContextCompat
@@ -35,6 +36,9 @@ class TodoAdapter(
 
     /** 完了の見出しを押したとき */
     var onToggleDone: () -> Unit = {}
+
+    /** 長押ししたとき（期限を延ばす、#131）。null なら長押しは使わない */
+    var onLongPress: ((Todo, View) -> Unit)? = null
 
     /** タグの札を押したとき（そのタグだけにする、#109）。null なら押せない */
     var onTagClick: ((String) -> Unit)? = null
@@ -141,6 +145,16 @@ class TodoAdapter(
         b.checkDone.isChecked = todo.done
         b.checkDone.setOnClickListener { onDoneChanged?.invoke(todo, b.checkDone.isChecked) }
         b.root.setOnClickListener { onClick(todo) }
+        val longPress = onLongPress
+        if (longPress != null && !todo.done) {
+            b.root.setOnLongClickListener {
+                longPress(todo, it)
+                true
+            }
+        } else {
+            b.root.setOnLongClickListener(null)
+            b.root.isLongClickable = false
+        }
     }
 
     private companion object {

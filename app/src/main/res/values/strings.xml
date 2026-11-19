@@ -90,6 +90,11 @@
     <string name="model_no_space">空きが足りません（%1$dMB 要、空き %2$dMB）</string>
     <string name="model_failed">取り込めませんでした</string>
     <string name="model_remove_confirm">AIのモデルを外して、ルールだけで判定しますか？</string>
+    <string name="postpone_tomorrow">明日にする</string>
+    <string name="postpone_next_monday">来週月曜にする</string>
+    <string name="postpone_none">期限なしにする</string>
+    <string name="postponed_to">「%1$s」を%2$sにしました</string>
+    <string name="postponed_none">「%1$s」を期限なしにしました</string>
     <string name="label_repeat">繰り返し</string>
     <string name="repeat_none">しない</string>
     <string name="widget_done_item">%1$s を完了にする</string>
