@@ -83,7 +83,7 @@ class TodoExtractor(
         if (task || keywords().any { it.isNotBlank() && sentence.contains(it) }) return true
         // 自分が引き受ける言い方（「私がまとめるね」「俺は図を作るわ」）
         if (COMMITMENT.containsMatchIn(body)) return true
-        val hasDate = parser.find(sentence, today()) != null
+        val hasDate = parser.find(withoutRepeat(sentence), today()) != null
         // 「毎週月曜はゴミ出し」「毎月25日に家賃」：繰り返しと日付がそろえば候補にする（#107）
         if (REPEAT_WEEKLY_MONTHLY.containsMatchIn(body) && hasDate) return true
         return ACTION_ENDING.containsMatchIn(body) && hasDate
@@ -98,10 +98,12 @@ class TodoExtractor(
     /** キーワードと日付表現のルールだけで取り出す。 */
     internal fun extractByRule(sentence: String, on: LocalDate = today()): Todo {
         val text = sentence.trim()
-        val match = parser.find(text, on)
         val repeat = repeatOf(text)
+        // 「毎月25日」は「月25日」でつまずいて日付が読めないので、繰り返しの言葉を外してから読む（#136）
+        val forDate = withoutRepeat(text)
+        val match = parser.find(forDate, on)
         // 日付が見つかったときの範囲は、漢数字を直したあとの文での位置
-        val title = makeTitle(match?.text ?: text, match?.range)
+        val title = makeTitle(match?.text ?: forDate, match?.range)
         return Todo(
             // 「毎週」などは題名から外す（#107）
             title = title.replace(REPEAT_WORD, "").trimStart(*SEPARATORS, 'に', 'は').ifBlank { title },
@@ -112,6 +114,9 @@ class TodoExtractor(
             repeat = repeat,
         )
     }
+
+    /** 繰り返しの言葉（毎週・毎月など）を外した文。日付を読むときに使う（#136） */
+    fun withoutRepeat(text: String): String = text.replace(REPEAT_WORD, "").trimStart(*SEPARATORS)
 
     /** 「毎日」「毎朝」「毎週」「毎月」から繰り返しを読み取る（#107） */
     fun repeatOf(text: String): Repeat? = when {

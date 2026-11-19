@@ -36,7 +36,12 @@ class RepeatTest {
         assertEquals(today, pill.due)
         assertTrue(pill.title, pill.title.startsWith("薬を飲"))
 
-        assertEquals(Repeat.MONTHLY, e.extractByRule("毎月25日に家賃を払う").repeat)
+        // 「毎月25日」も日付を読む（#136）
+        val rent = e.extractByRule("毎月25日に家賃払わないと")
+        assertEquals(Repeat.MONTHLY, rent.repeat)
+        assertEquals(LocalDate.of(2026, 11, 25), rent.due)
+        assertEquals("家賃払う", rent.title)
+        assertTrue(e.isCandidate("毎月25日は家賃の日"))
         assertNull(e.extractByRule("明日までにレポート出す").repeat)
     }
 
