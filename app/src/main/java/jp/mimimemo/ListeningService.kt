@@ -75,7 +75,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
         val app = applicationContext
         ListeningHub.onStatusChanged = { ListeningTileService.refresh(app) }
         val keywords = KeywordStore(this)
-        extractor = TodoExtractor(keywords = keywords::load, ai = UnavailableLocalAiClient)
+        extractor = TodoExtractor(keywords = keywords::load, ai = UnavailableLocalAiClient, customTags = TagStore(this)::load)
         llm = LocalLlm(this)
         speech = SpeechController(
             this,
@@ -305,7 +305,8 @@ class ListeningService : Service(), SpeechController.ResultListener {
             Todo(
                 title = task.title,
                 due = task.dueText?.let { parser.parse(it, heard.on) } ?: rule?.due ?: parser.parse(heard.text, heard.on),
-                tag = task.tag ?: rule?.tag ?: extractor.guessTag(heard.text),
+                // 自分で足したタグ（科目名）が文中にあれば、AI のタグより優先する（#10）
+                tag = extractor.customTag(heard.text) ?: task.tag ?: rule?.tag ?: extractor.guessTag(heard.text),
                 sourceText = heard.text,
             )
         }

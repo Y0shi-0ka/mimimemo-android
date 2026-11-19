@@ -15,6 +15,8 @@ class TodoExtractor(
     private val ai: LocalAiClient = UnavailableLocalAiClient,
     private val parser: DateParser = DateParser(),
     private val today: () -> LocalDate = { LocalDate.now() },
+    /** 自分で足したタグ（科目名など、#10） */
+    private val customTags: () -> List<String> = { emptyList() },
 ) {
 
     /**
@@ -155,9 +157,13 @@ class TodoExtractor(
         }
     }
 
-    /** 文に含まれる言葉から、科目・活動のタグを推定する。 */
+    /** 文に含まれる言葉から、科目・活動のタグを推定する。自分で足したタグの名前があればそれを優先する（#10） */
     internal fun guessTag(text: String): String =
-        TAG_RULES.firstOrNull { (_, words) -> words.any { text.contains(it) } }?.first ?: Todo.TAG_OTHER
+        customTag(text) ?: TAG_RULES.firstOrNull { (_, words) -> words.any { text.contains(it) } }?.first ?: Todo.TAG_OTHER
+
+    /** 文中に名前が出てくる、自分で足したタグ。長い名前から見る（「データベース演習」と「データベース」なら前者） */
+    fun customTag(text: String): String? =
+        customTags().filter { it.isNotBlank() }.sortedByDescending { it.length }.firstOrNull { text.contains(it) }
 
     companion object {
         /**
