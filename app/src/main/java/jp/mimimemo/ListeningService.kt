@@ -71,6 +71,9 @@ class ListeningService : Service(), SpeechController.ResultListener {
     override fun onCreate() {
         super.onCreate()
         ListeningHub.attach(this)
+        // 聞き取りが始まった・止まったら、クイック設定のタイルを合わせる（#85）
+        val app = applicationContext
+        ListeningHub.onStatusChanged = { ListeningTileService.refresh(app) }
         val keywords = KeywordStore(this)
         extractor = TodoExtractor(keywords = keywords::load, ai = UnavailableLocalAiClient)
         llm = LocalLlm(this)

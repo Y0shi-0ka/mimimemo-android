@@ -75,8 +75,13 @@ object ListeningHub {
         store?.save(_candidates.value)
     }
 
+    /** 状態が変わったときに呼ぶ（タイルの表示を合わせる、#85） */
+    internal var onStatusChanged: ((Status) -> Unit)? = null
+
     internal fun setStatus(status: Status) {
+        val changed = _status.value != status
         _status.value = status
+        if (changed) onStatusChanged?.invoke(status)
     }
 
     internal fun setPartial(text: String) {
