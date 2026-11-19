@@ -22,7 +22,10 @@
             app:boxCornerRadiusTopEnd="20dp"
             app:boxCornerRadiusTopStart="20dp"
             app:boxStrokeWidth="0dp"
-            app:boxStrokeWidthFocused="0dp">
+            app:boxStrokeWidthFocused="0dp"
+            app:endIconContentDescription="@string/voice_title"
+            app:endIconDrawable="@drawable/ic_mic"
+            app:endIconMode="custom">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/editTitle"

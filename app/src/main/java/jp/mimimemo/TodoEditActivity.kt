@@ -1,13 +1,20 @@
 package jp.mimimemo
 
+import android.Manifest
+import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
+import android.speech.SpeechRecognizer
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import jp.mimimemo.databinding.ActivityTodoEditBinding
@@ -59,6 +66,7 @@ class TodoEditActivity : AppCompatActivity() {
             tag = savedInstanceState.getString(STATE_TAG) ?: Todo.TAG_OTHER
             repeat = Repeat.fromKey(savedInstanceState.getString(STATE_REPEAT))
         }
+        setUpVoiceTitle()
         ChoiceChips.bindDue(binding.chipsDue, due) {
             due = it
             // 期限があるときだけ「カレンダーに入れる」を出す
@@ -86,6 +94,7 @@ class TodoEditActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) (oneShot as? OneShotSpeech)?.cancel()
         db.close()
         super.onDestroy()
     }
@@ -114,6 +123,47 @@ class TodoEditActivity : AppCompatActivity() {
             true
         }
         else -> super.onOptionsItemSelected(item)
+    }
+
+    private var oneShot: Any? = null
+
+    /**
+     * 題名の欄のマイク：1回だけ聞き取って題名を置き換える（#114）。
+     * 端末内の認識が使えない（Android 11 以前）ときはマイクを出さない。
+     */
+    private fun setUpVoiceTitle() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S || !SpeechRecognizer.isOnDeviceRecognitionAvailable(this)) {
+            binding.layoutTitle.isEndIconVisible = false
+            return
+        }
+        binding.layoutTitle.setEndIconOnClickListener { listenTitle() }
+    }
+
+    @SuppressLint("NewApi")
+    private fun listenTitle() {
+        when {
+            // 常時の聞き取りがマイクを使っている間は使えない
+            ListeningHub.isRunning -> Toast.makeText(this, R.string.voice_title_busy, Toast.LENGTH_SHORT).show()
+            ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED ->
+                requestMic.launch(Manifest.permission.RECORD_AUDIO)
+            else -> {
+                val before = binding.editTitle.text?.toString().orEmpty()
+                binding.layoutTitle.hint = getString(R.string.voice_title_listening)
+                binding.editTitle.text = null
+                val speech = OneShotSpeech(this) { text ->
+                    binding.layoutTitle.hint = getString(R.string.label_title)
+                    binding.editTitle.setText(text ?: before)
+                    binding.editTitle.setSelection(binding.editTitle.length())
+                    if (text == null) Toast.makeText(this, R.string.voice_title_failed, Toast.LENGTH_SHORT).show()
+                }
+                oneShot = speech
+                speech.start()
+            }
+        }
+    }
+
+    private val requestMic = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) listenTitle()
     }
 
     /** 端末のカレンダーアプリの予定作成画面を開く（#111）。カレンダーアプリがなければ知らせる */
