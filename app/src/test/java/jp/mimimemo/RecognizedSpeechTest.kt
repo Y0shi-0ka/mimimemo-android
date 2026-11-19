@@ -85,4 +85,25 @@ class RecognizedSpeechTest {
         // 空白や句読点の違いは同じとみなす
         assertFalse(seen.isNew(a.copy(title = "レポート 提出する。")))
     }
+
+    @Test
+    fun dateNoticesAreNotCandidates() {
+        // 期限を伝えるだけの文（issue #39）
+        assertTrue(extractor.isDateNotice("来週月曜が提出の日です"))
+        assertTrue(extractor.isDateNotice("締め切りは金曜です"))
+        assertTrue(extractor.isDateNotice("提出は十一月二十日だよ"))
+        assertTrue(extractor.isDateNotice("期限は明日です"))
+        // やることが残る文は候補のまま
+        assertFalse(extractor.isDateNotice("レポートの締め切りは金曜です"))
+        assertFalse(extractor.isDateNotice("金曜までにレポート提出して"))
+        assertFalse(extractor.isDateNotice("提出お願いします"))
+        assertNull(kotlinx.coroutines.runBlocking { extractor.extract("来週月曜が提出の日です") })
+    }
+
+    @Test
+    fun leadingParticleAfterDateIsRemoved() {
+        assertEquals("レポートを出す", todo("明日はレポートを出す").title)
+        assertEquals("発表なので準備をしておく", todo("来週月曜が発表なので準備をしておいて").title)
+        assertEquals("スライドを作る", todo("金曜にスライドを作っといて").title)
+    }
 }
