@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import com.google.android.material.chip.Chip
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -85,6 +86,31 @@ class SettingsActivity : AppCompatActivity() {
                 }
             }
             binding.chipGroup.addView(chip)
+        }
+        renderSuggestions(words)
+    }
+
+    /** 辞書にない、よく使う言い方を「＋」付きの札で出す。タップで足す（issue #51） */
+    private fun renderSuggestions(words: List<String>) {
+        val suggestions = (TodoExtractor.SUGGESTED_KEYWORDS + TodoExtractor.DEFAULT_KEYWORDS).distinct() - words.toSet()
+        binding.suggestionGroup.removeAllViews()
+        binding.labelSuggestions.isVisible = suggestions.isNotEmpty()
+        for (word in suggestions) {
+            binding.suggestionGroup.addView(
+                Chip(this).apply {
+                    text = word
+                    setChipIconResource(R.drawable.ic_add_small)
+                    isChipIconVisible = true
+                    chipIconTint = textColors
+                    setChipBackgroundColorResource(R.color.surface_container)
+                    chipStrokeWidth = 0f
+                    contentDescription = getString(R.string.keyword_add_suggestion, word)
+                    setOnClickListener {
+                        store.add(word)
+                        render()
+                    }
+                }
+            )
         }
     }
 

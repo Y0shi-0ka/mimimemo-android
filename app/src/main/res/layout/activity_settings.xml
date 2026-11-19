@@ -71,5 +71,20 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp" />
 
+        <!-- 辞書にない、よく使う言い方。タップで足す（issue #51） -->
+        <TextView
+            android:id="@+id/labelSuggestions"
+            style="@style/MimiMemo.SectionTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="28dp"
+            android:text="@string/keyword_suggestions" />
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/suggestionGroup"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" />
+
     </LinearLayout>
 </ScrollView>
