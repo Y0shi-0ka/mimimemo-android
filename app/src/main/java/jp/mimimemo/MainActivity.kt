@@ -1,6 +1,7 @@
 package jp.mimimemo
 
 import android.appwidget.AppWidgetManager
+import androidx.activity.OnBackPressedCallback
 import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
@@ -43,6 +44,15 @@ class MainActivity : AppCompatActivity() {
             prefs.edit { putBoolean(KEY_DONE_EXPANDED, !prefs.getBoolean(KEY_DONE_EXPANDED, false)) }
             refresh()
         }
+        // タグの札を押すとそのタグだけにする。絞り込みは覚えておかない（#109）
+        adapter.onTagClick = { tag ->
+            tagFilter = tag
+            refresh()
+        }
+        binding.filterChip.setOnClickListener { clearFilter() }
+        binding.filterChip.setOnCloseIconClickListener { clearFilter() }
+        // 絞り込み中の「戻る」は、閉じずに絞り込みを外す
+        onBackPressedDispatcher.addCallback(this, clearFilterOnBack)
         binding.listView.layoutManager = LinearLayoutManager(this)
         binding.listView.adapter = adapter
 
@@ -137,11 +147,26 @@ class MainActivity : AppCompatActivity() {
         else -> super.onOptionsItemSelected(item)
     }
 
+    private var tagFilter: String? = null
+
+    private val clearFilterOnBack = object : OnBackPressedCallback(false) {
+        override fun handleOnBackPressed() = clearFilter()
+    }
+
+    private fun clearFilter() {
+        tagFilter = null
+        refresh()
+    }
+
     private fun refresh() {
-        val todos = db.findAllOrderByDue()
-        val done = db.findDone()
+        val filter = tagFilter
+        val todos = db.findAllOrderByDue().filter { filter == null || it.tag == filter }
+        val done = db.findDone().filter { filter == null || it.tag == filter }
         adapter.submitGrouped(todos, done, prefs.getBoolean(KEY_DONE_EXPANDED, false))
-        binding.emptyView.isVisible = todos.isEmpty() && done.isEmpty()
+        binding.filterChip.isVisible = filter != null
+        clearFilterOnBack.isEnabled = filter != null
+        binding.filterChip.text = filter?.let { getString(R.string.filter_tag, it) }
+        binding.emptyView.isVisible = todos.isEmpty() && done.isEmpty() && filter == null
 
         val dueTomorrow = db.findDueOn(LocalDate.now().plusDays(1))
         binding.reminderCard.isVisible = dueTomorrow.isNotEmpty()
