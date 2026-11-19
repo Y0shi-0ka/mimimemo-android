@@ -105,6 +105,8 @@ class ListeningActivity : AppCompatActivity() {
         setContentView(binding.root)
         if (isLandscape) fitCandidates(true)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        // 共有の入口（別名）から開くと、題名が別名のラベルになるので固定する（#95）
+        setTitle(R.string.title_listening)
 
         db = TodoDbHelper(this)
         extractor = TodoExtractor(keywords = KeywordStore(this)::load, ai = UnavailableLocalAiClient)
@@ -121,12 +123,16 @@ class ListeningActivity : AppCompatActivity() {
         observe()
         when {
             savedInstanceState != null -> Unit
-            isShare(intent) -> receiveShared(intent)
+            isShare(intent) -> if (intent.action == Intent.ACTION_SEND) receiveShared(intent)
             intent.getBooleanExtra(EXTRA_START, true) -> startIfNeeded()
         }
     }
 
-    private fun isShare(intent: Intent) = intent.action == Intent.ACTION_SEND
+    /**
+     * 共有の入口（公開している別名）から来たか（#95）。
+     * ほかのアプリから開けるのはこの入口だけなので、ここから来たときは聞き取りを始めない。
+     */
+    private fun isShare(intent: Intent) = intent.component?.className == SHARE_TARGET
 
     /**
      * 共有された文章を候補カードにする（#93）。聞き取りは始めない。
@@ -148,7 +154,11 @@ class ListeningActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (isShare(intent)) receiveShared(intent) else if (debugSentences() != null) startIfNeeded()
+        if (isShare(intent)) {
+            if (intent.action == Intent.ACTION_SEND) receiveShared(intent)
+        } else if (debugSentences() != null) {
+            startIfNeeded()
+        }
     }
 
     override fun onDestroy() {
@@ -456,5 +466,6 @@ class ListeningActivity : AppCompatActivity() {
     companion object {
         /** false なら開いても聞き取りを始めない（候補を決めに来ただけのとき） */
         const val EXTRA_START = "jp.mimimemo.extra.START"
+        private const val SHARE_TARGET = "jp.mimimemo.ShareTarget"
     }
 }
