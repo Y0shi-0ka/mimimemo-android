@@ -1,17 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- 色はここに集める。ダークモードは values-night/colors.xml（issue #35） -->
 <resources>
-    <color name="primary">#3949AB</color>
+    <!-- 主色（藍） -->
+    <color name="primary">#3F4FD8</color>
     <color name="on_primary">#FFFFFF</color>
-    <color name="primary_container">#DEE0FF</color>
-    <color name="on_primary_container">#00105C</color>
-    <color name="appbar">#3949AB</color>
-    <color name="appbar_deep">#283593</color>
-    <color name="background">#F7F7FC</color>
-    <color name="listening">#E53935</color>
-    <color name="idle">#9E9E9E</color>
-    <color name="candidate_highlight">#3949AB</color>
-    <color name="swipe_positive">#2E7D32</color>
-    <color name="swipe_delete">#C62828</color>
-    <color name="swipe_neutral">#757575</color>
-    <color name="ic_launcher_background">#3949AB</color>
+    <color name="primary_container">#E3E6FF</color>
+    <color name="on_primary_container">#151E6B</color>
+
+    <!-- 面と文字 -->
+    <color name="background">#F4F5F9</color>
+    <color name="card">#FFFFFF</color>
+    <color name="card_stroke">#E6E8EF</color>
+    <color name="on_surface">#1A1C24</color>
+    <color name="on_surface_variant">#5D6170</color>
+    <color name="surface_container">#ECEEF4</color>
+    <color name="outline">#C9CCD6</color>
+
+    <!-- 聞き取りの状態 -->
+    <color name="listening">#E5484D</color>
+    <color name="idle">#A0A4B0</color>
+    <color name="candidate_highlight">#3F4FD8</color>
+
+    <!-- 期限の札：急ぎ（過ぎた・今日・明日）／もうすぐ（3日以内）／それ以外 -->
+    <color name="due_urgent_bg">#FDE8E8</color>
+    <color name="due_urgent_fg">#C62A2F</color>
+    <color name="due_soon_bg">#FFF1DD</color>
+    <color name="due_soon_fg">#A85B00</color>
+    <color name="due_normal_bg">#ECEEF4</color>
+    <color name="due_normal_fg">#5D6170</color>
+
+    <!-- スワイプ・候補カード -->
+    <color name="swipe_positive">#1F9D61</color>
+    <color name="swipe_delete">#E5484D</color>
+    <color name="swipe_neutral">#8A8F9C</color>
+
+    <color name="ic_launcher_background">#3F4FD8</color>
 </resources>

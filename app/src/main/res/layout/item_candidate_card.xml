@@ -5,8 +5,9 @@
     style="@style/Widget.Material3.CardView.Elevated"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    app:cardBackgroundColor="@color/card"
     app:cardCornerRadius="28dp"
-    app:cardElevation="4dp">
+    app:cardElevation="6dp">
 
     <FrameLayout
         android:layout_width="match_parent"
@@ -46,7 +47,7 @@
                     android:gravity="center_vertical"
                     android:textAppearance="?attr/textAppearanceTitleMedium"
                     android:textColor="?attr/colorPrimary"
-                    app:drawableStartCompat="@drawable/ic_calendar"
+                    app:drawableStartCompat="@drawable/ic_calendar_small"
                     app:drawableTint="?attr/colorPrimary" />
 
                 <TextView

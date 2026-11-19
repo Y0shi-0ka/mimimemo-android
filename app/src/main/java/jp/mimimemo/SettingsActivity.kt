@@ -76,6 +76,9 @@ class SettingsActivity : AppCompatActivity() {
             val chip = Chip(this).apply {
                 text = word
                 isCloseIconVisible = true
+                // 一覧のカードと同じ白い面と細い枠（issue #35）
+                setChipBackgroundColorResource(R.color.card)
+                setChipStrokeColorResource(R.color.card_stroke)
                 setOnCloseIconClickListener {
                     store.remove(word)
                     render()

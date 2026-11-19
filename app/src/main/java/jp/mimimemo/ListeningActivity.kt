@@ -15,7 +15,6 @@ import android.provider.Settings
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
-import android.text.style.StyleSpan
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.WindowManager
@@ -301,8 +300,8 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
             val start = sb.length
             sb.append(l.text)
             if (l.candidate) {
+                // 候補になった文は主色で示す。太字にはしない（重く見えるため、issue #35）
                 sb.setSpan(ForegroundColorSpan(highlight), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
-                sb.setSpan(StyleSpan(android.graphics.Typeface.BOLD), start, sb.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
         }
         binding.textTranscript.text = sb
