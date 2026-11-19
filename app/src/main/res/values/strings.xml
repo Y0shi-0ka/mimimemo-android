@@ -29,6 +29,7 @@
     <string name="swipe_skip">しない</string>
     <string name="action_flush">今まとめる</string>
     <string name="due_pick">日付</string>
+    <string name="candidates_remaining">あと%1$d件</string>
     <string name="keyword_suggestions">おすすめ（タップで追加）</string>
     <string name="keyword_add_suggestion">「%1$s」を追加</string>
     <string name="section_header">%1$s　%2$d</string>
@@ -47,8 +48,7 @@
     <string name="status_listening">聞き取り中</string>
     <string name="status_stopped">停止中</string>
     <string name="status_manual_only">手入力のみ</string>
-    <string name="transcript_hint">会話を端末の中だけで文字にします。音声は保存しません。
-画面を閉じても聞き取りは続きます。</string>
+    <string name="transcript_hint">会話を端末の中だけで文字にします。音声は保存しません。\n画面を閉じても聞き取りは続きます。</string>
     <string name="action_stop">停止</string>
     <string name="action_resume">再開する</string>
     <string name="manual_hint">文を入力</string>

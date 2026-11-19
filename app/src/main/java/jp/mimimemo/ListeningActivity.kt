@@ -168,6 +168,9 @@ class ListeningActivity : AppCompatActivity() {
                     ListeningHub.candidates.collect {
                         binding.candidateStack.submit(it)
                         binding.candidateArea.isVisible = it.isNotEmpty()
+                        // 外出中などにたまった候補をまとめて決めるとき、残りの枚数がわかるように（#56）
+                        binding.textRemaining.isVisible = it.size > 1
+                        binding.textRemaining.text = getString(R.string.candidates_remaining, it.size)
                         // 停止したあと、決めていない候補がなくなったら閉じる
                         if (closing && it.isEmpty() && !ListeningHub.isRunning) finish()
                     }
@@ -224,9 +227,13 @@ class ListeningActivity : AppCompatActivity() {
         setIndicator(indicator)
         binding.noticeCard.isVisible = false
         binding.manualRow.isVisible = false
-        if (ListeningHub.lines.value.isEmpty() && ListeningHub.partial.value.isEmpty()) {
-            binding.textTranscript.setHint(R.string.transcript_hint)
-        }
+        // 説明は聞き取っているときだけ。止まっているのに「続きます」と出さない
+        binding.textTranscript.hint =
+            if (indicator != Indicator.OFF && ListeningHub.lines.value.isEmpty() && ListeningHub.partial.value.isEmpty()) {
+                getString(R.string.transcript_hint)
+            } else {
+                null
+            }
     }
 
     /** 聞き取れない状態。理由と、あればできる操作のボタンを出す。この間も使えるよう手入力の欄を出す */
