@@ -15,6 +15,7 @@ class SettingsActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivitySettingsBinding
     private lateinit var store: KeywordStore
+    private lateinit var tags: TagStore
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -22,6 +23,11 @@ class SettingsActivity : AppCompatActivity() {
         setContentView(binding.root)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         store = KeywordStore(this)
+        tags = TagStore(this)
+        binding.buttonAddTag.setOnClickListener { addTag() }
+        binding.editTag.onSubmit { addTag() }
+        binding.editTag.doAfterTextChanged { binding.layoutTag.error = null }
+        renderTags()
 
         binding.buttonAdd.setOnClickListener { addKeyword() }
         binding.editKeyword.onSubmit { addKeyword() }
@@ -75,6 +81,36 @@ class SettingsActivity : AppCompatActivity() {
             render()
         } else {
             binding.layoutKeyword.error = getString(R.string.keyword_exists, word)
+        }
+    }
+
+    private fun addTag() {
+        val tag = binding.editTag.text?.toString()?.trim().orEmpty()
+        if (tag.isEmpty()) return
+        if (tags.add(tag)) {
+            binding.editTag.text = null
+            renderTags()
+        } else {
+            binding.layoutTag.error = getString(R.string.keyword_exists, tag)
+        }
+    }
+
+    /** 足したタグだけを出す（決まった5つは消せないので出さない、#10） */
+    private fun renderTags() {
+        binding.tagGroup.removeAllViews()
+        for (tag in tags.load()) {
+            binding.tagGroup.addView(
+                Chip(this).apply {
+                    text = tag
+                    isCloseIconVisible = true
+                    setChipBackgroundColorResource(R.color.card)
+                    setChipStrokeColorResource(R.color.card_stroke)
+                    setOnCloseIconClickListener {
+                        tags.remove(tag)
+                        renderTags()
+                    }
+                }
+            )
         }
     }
 

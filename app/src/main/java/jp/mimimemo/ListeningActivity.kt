@@ -109,7 +109,7 @@ class ListeningActivity : AppCompatActivity() {
         setTitle(R.string.title_listening)
 
         db = TodoDbHelper(this)
-        extractor = TodoExtractor(keywords = KeywordStore(this)::load, ai = UnavailableLocalAiClient)
+        extractor = TodoExtractor(keywords = KeywordStore(this)::load, ai = UnavailableLocalAiClient, customTags = TagStore(this)::load)
 
         binding.candidateStack.onAccept = { acceptCandidate(it) }
         binding.candidateStack.onReject = { rejectCandidate(it) }
@@ -449,7 +449,7 @@ class ListeningActivity : AppCompatActivity() {
         b.editTitle.setText(candidate.title)
         // 期限・タグは札を1タップで選ぶ（#47）
         ChoiceChips.bindDue(b.chipsDue, due) { due = it }
-        ChoiceChips.bindTag(b.chipsTag, Todo.TAGS, tag) { tag = it }
+        ChoiceChips.bindTag(b.chipsTag, TagStore(this).all().let { if (tag in it) it else it + tag }, tag) { tag = it }
         b.textSource.text = getString(R.string.source_quote, candidate.sourceText.orEmpty())
 
         MaterialAlertDialogBuilder(this)

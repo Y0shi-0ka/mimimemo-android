@@ -13,7 +13,7 @@
 | ③ | ToDo 候補の詳細ダイアログ（候補カードをタップしたとき） | `ListeningActivity#showCandidateDialog` |
 | ④ | ToDo 編集 | `TodoEditActivity` |
 | ⑤ | 今日のまとめ | `SummaryActivity` |
-| ⑥ | 設定（キーワード辞書） | `SettingsActivity` |
+| ⑥ | 設定（キーワード辞書・タグ） | `SettingsActivity` |
 
 ① の下のマイクのボタンで ②、カードのタップで ④、メニューから ⑤ と ⑥ に移ります。
 
@@ -72,6 +72,7 @@
 | `TodoWidget` | ホーム画面ウィジェット。ToDo を変えたとき（`TodoDbHelper` の書き込み）に描き直します（#97） |
 | `SharedText` | 共有された文章を、聞き取りと同じ流れで候補にします（#93） |
 | `KeywordStore` | キーワード辞書（SharedPreferences） |
+| `TagStore` | 自分で足したタグ（科目名など）。文中にその名前があれば、そのタグを付けます（#10） |
 
 ## 端末内の AI（文脈から ToDo を選ぶ）
 

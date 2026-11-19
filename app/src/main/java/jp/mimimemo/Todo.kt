@@ -17,7 +17,7 @@ data class Todo(
     companion object {
         const val TAG_OTHER = "その他"
 
-        /** 編集画面の Spinner に出すタグ（追加・編集できるようにするかは issue #10 で検討中） */
+        /** 決まったタグ。自分で足したタグ（科目名など）は TagStore（#10） */
         val TAGS = listOf("授業", "研究室", "グループ", "バイト", TAG_OTHER)
     }
 }

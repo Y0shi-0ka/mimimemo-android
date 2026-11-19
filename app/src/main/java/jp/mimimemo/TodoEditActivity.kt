@@ -45,7 +45,7 @@ class TodoEditActivity : AppCompatActivity() {
         setTitle(if (todo == null) R.string.title_add else R.string.title_edit)
 
         // 保存済みのタグが一覧にない場合も選べるようにする
-        tags = if (todo != null && todo.tag !in Todo.TAGS) Todo.TAGS + todo.tag else Todo.TAGS
+        tags = TagStore(this).all().let { all -> if (todo != null && todo.tag !in all) all + todo.tag else all }
         if (savedInstanceState == null) {
             binding.editTitle.setText(todo?.title.orEmpty())
             due = todo?.due
