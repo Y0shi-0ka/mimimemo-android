@@ -34,10 +34,11 @@ class TodoExtractorTest {
 
     @Test
     fun userKeywordIsUsed() = runBlocking {
-        assertNull(extractor().extract("スライドやっといて"))
-        val todo = extractor(TodoExtractor.DEFAULT_KEYWORDS + "やっといて").extract("スライドやっといて")
+        // 組み込みの言い方（#66）でも辞書の初期値でも拾わない言葉を、ユーザーが足したときだけ拾う
+        assertNull(extractor().extract("スライドの件よろしく"))
+        val todo = extractor(TodoExtractor.DEFAULT_KEYWORDS + "よろしく").extract("スライドの件よろしく")
         assertNotNull(todo)
-        assertEquals("スライドやる", todo!!.title)
+        assertEquals("スライドの件よろしく", todo!!.title)
     }
 
     @Test

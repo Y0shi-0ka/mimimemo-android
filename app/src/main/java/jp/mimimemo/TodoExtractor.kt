@@ -64,9 +64,18 @@ class TodoExtractor(
         return core.replace("の日", "日") in NOTICE_WORDS
     }
 
+    /**
+     * ToDo になりそうな文か。次のどれかに当てはまれば候補にする（issue #66）。
+     * 1. キーワード辞書の言葉を含む
+     * 2. 依頼・予定・義務の言い方を含む（しなきゃ・しないと・予定・〜ておいて など。辞書がなくても拾う）
+     * 3. 期限の言い方と、動作の言い方（する・出す・行く・ある…）がそろう（「明日レポート出す」）
+     */
     internal fun isCandidate(sentence: String): Boolean {
         if (sentence.isBlank()) return false
-        return keywords().any { it.isNotBlank() && sentence.contains(it) }
+        if (keywords().any { it.isNotBlank() && sentence.contains(it) }) return true
+        val body = sentence.trim().trimEnd(*TRAILING_PUNCT).replace(TRAILING_PARTICLE_END, "")
+        if (TASK_EXPRESSION.containsMatchIn(body) || TASK_ENDING.containsMatchIn(body)) return true
+        return ACTION_ENDING.containsMatchIn(body) && parser.find(sentence, today()) != null
     }
 
     /**
@@ -107,6 +116,10 @@ class TodoExtractor(
             s = s.trimEnd(*TRAILING_PUNCT).replace(TRAILING_POLITE, "")
         } while (s != prev)
 
+        // 「〜する予定です」「〜するつもり」→「〜する」、「出さなきゃ」「しないと」→「出す」「する」（#66）
+        s = s.replace(PLAN_TAIL, "")
+        OBLIGATION.find(s)?.let { m -> s = s.substring(0, m.range.first) + toDictionaryForm(m.groupValues[1]) }
+
         for ((pattern, replacement) in REQUEST_FORMS) {
             if (pattern.containsMatchIn(s)) {
                 s = s.replace(pattern, replacement)
@@ -115,6 +128,18 @@ class TodoExtractor(
         }
         s = s.trim().trimStart(*SEPARATORS)
         return s.ifBlank { sentence.trim().trimEnd(*TRAILING_PUNCT) }
+    }
+
+    /** 「出さ」「し」「見」など義務の言い方の前の形を、辞書形（出す・する・見る）に直す */
+    private fun toDictionaryForm(stem: String): String {
+        if (stem.isEmpty()) return stem
+        val last = stem.last()
+        val head = stem.dropLast(1)
+        return when (last) {
+            'し' -> "${head}する"
+            'こ' -> "${head}くる"
+            else -> A_TO_U[last]?.let { head + it } ?: "${stem}る"
+        }
     }
 
     /** 文に含まれる言葉から、科目・活動のタグを推定する。 */
@@ -143,6 +168,38 @@ class TodoExtractor(
         val SUGGESTED_KEYWORDS = listOf(
             "やっといて", "やっておいて", "出しといて", "確認して", "読んでおいて", "調べといて",
             "連絡して", "予約して", "買っといて", "送っといて", "見といて", "覚えといて",
+        )
+
+        /** 依頼・予定・義務の言い方（#66）。辞書になくても候補にする */
+        private val TASK_EXPRESSION = Regex(
+            "なきゃ|なくちゃ|ないと(?:いけない|ダメ|だめ)?$|なければ(?:いけない|ならない)|ないといけない|必要がある|" +
+                "予定|つもり|て(?:ください|下さい|くれる|くれない|ほしい|欲しい)|ておいて|といて|頼む|頼んだ|やっといて",
+        )
+
+        /** 文の終わりにだけ見る言い方（文の途中の「ちょっとくらい」などで誤って拾わないように） */
+        private val TASK_ENDING = Regex("(?:ておく|とく|ておきます|ときます)$")
+
+        /** 期限と一緒にあれば候補にする、動作の言い方（文の終わり） */
+        private val ACTION_ENDING = Regex(
+            "(?:する|します|やる|やります|出す|出します|行く|行きます|来る|来ます|持っていく|持ってく|" +
+                "買う|送る|読む|書く|見る|調べる|返す|払う|ある|あります|集合|提出)$",
+        )
+
+        /** 文末の「ね」「よ」「な」「わ」など（判定の前に落とす） */
+        private val TRAILING_PARTICLE_END = Regex("(?:よね|ね|よ|な|わ|ぞ|ぜ)$")
+
+        /** 「予定です」「つもり」など、題名から落とす文末 */
+        private val PLAN_TAIL = Regex("(?:予定|つもり)(?:です|だ|でした)?$")
+
+        /** 義務の言い方。1つ目のかたまりは「なきゃ」などの前の形 */
+        private val OBLIGATION = Regex(
+            "([ぁ-ゖ一-龯]{0,1}[かがさたなばまらわしこ見寝出来着居])(?:なきゃ|なくちゃ|ないと|なければ)(?:いけない|ならない|ダメ|だめ)?$",
+        )
+
+        /** 五段の「ない」の前の形（ア段）→ 辞書形の終わり（ウ段） */
+        private val A_TO_U = mapOf(
+            'か' to "く", 'が' to "ぐ", 'さ' to "す", 'た' to "つ", 'な' to "ぬ",
+            'ば' to "ぶ", 'ま' to "む", 'ら' to "る", 'わ' to "う",
         )
 
         private val SEPARATORS = charArrayOf('、', ',', ' ', '　')

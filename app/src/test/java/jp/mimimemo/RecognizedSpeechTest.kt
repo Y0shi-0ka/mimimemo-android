@@ -119,4 +119,40 @@ class RecognizedSpeechTest {
         assertFalse(seen.isNew(c))
         assertTrue(seen.isNew(a))
     }
+
+    @Test
+    fun naturalTaskExpressionsAreCandidates() {
+        // 辞書にない普段の言い方でも候補にする（#66）
+        val bare = TodoExtractor(keywords = { emptyList() }, today = { today })
+        listOf(
+            "レポート出さなきゃ",
+            "明日までに洗濯しないと",
+            "スライド作らなければいけない",
+            "金曜に面談する予定です",
+            "週末に部屋を片付けるつもり",
+            "資料を送ってください",
+            "それ調べておいて",
+            "ゴミ出しといて",
+            "傘持っていくの忘れないようにしておく",
+            "明日レポート出す",
+            "金曜テストある",
+        ).forEach { assertTrue(it, bare.isCandidate(it)) }
+        listOf(
+            "今日はいい天気ですね",
+            "明日は晴れらしい",
+            "ちょっとくらいならいいよ",
+            "昨日の試合すごかった",
+            "レポート出した",
+        ).forEach { assertFalse(it, bare.isCandidate(it)) }
+    }
+
+    @Test
+    fun naturalTaskTitles() {
+        assertEquals("レポート出す", todo("レポート出さなきゃ").title)
+        assertEquals("洗濯する", todo("洗濯しないと").title)
+        assertEquals("スライド作る", todo("スライド作らなければいけない").title)
+        assertEquals("面談する", todo("金曜に面談する予定です").title)
+        assertEquals("部屋を片付ける", todo("部屋を片付けるつもり").title)
+        assertEquals("レポート出す", todo("明日レポート出す").title)
+    }
 }
