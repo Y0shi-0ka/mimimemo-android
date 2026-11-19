@@ -129,6 +129,18 @@ object ListeningHub {
         return index
     }
 
+    /** すべての候補を外して、外したものを返す（まとめて「しない」、#118） */
+    fun clearCandidates(): List<Todo> {
+        val all = _candidates.value
+        if (all.isNotEmpty()) updateCandidates { emptyList() }
+        return all
+    }
+
+    /** まとめて外した候補を戻す。その間に来た候補は後ろに残す */
+    fun restoreCandidates(candidates: List<Todo>) {
+        updateCandidates { current -> candidates + current.filterNot { c -> candidates.any { it.id == c.id } } }
+    }
+
     /** 元に戻す：外した候補を元の位置に戻す */
     fun restoreCandidate(candidate: Todo, index: Int) {
         updateCandidates { list -> list.toMutableList().apply { add(index.coerceIn(0, size), candidate) } }

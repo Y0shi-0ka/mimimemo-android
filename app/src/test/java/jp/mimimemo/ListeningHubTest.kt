@@ -29,4 +29,19 @@ class ListeningHubTest {
 
         ListeningHub.candidates.value.forEach { ListeningHub.removeCandidate(it) }
     }
+
+    @Test
+    fun clearAndRestoreAll() {
+        ListeningHub.candidates.value.forEach { ListeningHub.removeCandidate(it) }
+        ListeningHub.addCandidate(Todo(title = "A"))
+        ListeningHub.addCandidate(Todo(title = "B"))
+        val removed = ListeningHub.clearCandidates()
+        assertEquals(2, removed.size)
+        assertEquals(0, ListeningHub.candidates.value.size)
+        // その間に来た候補は後ろに残す
+        ListeningHub.addCandidate(Todo(title = "C"))
+        ListeningHub.restoreCandidates(removed)
+        assertEquals(listOf("A", "B", "C"), ListeningHub.candidates.value.map { it.title })
+        ListeningHub.candidates.value.forEach { ListeningHub.removeCandidate(it) }
+    }
 }

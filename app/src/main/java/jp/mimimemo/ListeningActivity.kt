@@ -17,6 +17,8 @@ import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.LayoutInflater
+import android.view.Menu
+import android.view.MenuItem
 import android.widget.LinearLayout
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
@@ -166,6 +168,22 @@ class ListeningActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        if (ListeningHub.candidates.value.size > 1) menu.add(Menu.NONE, MENU_REJECT_ALL, Menu.NONE, R.string.reject_all)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean = when (item.itemId) {
+        MENU_REJECT_ALL -> {
+            val removed = ListeningHub.clearCandidates()
+            if (removed.isNotEmpty()) {
+                showUndo(getString(R.string.rejected_all, removed.size)) { ListeningHub.restoreCandidates(removed) }
+            }
+            true
+        }
+        else -> super.onOptionsItemSelected(item)
+    }
+
     override fun onSupportNavigateUp(): Boolean {
         // 閉じても聞き取りは続く
         finish()
@@ -256,6 +274,8 @@ class ListeningActivity : AppCompatActivity() {
                         // 外出中などにたまった候補をまとめて決めるとき、残りの枚数がわかるように（#56）
                         binding.textRemaining.isVisible = it.size > 1 && !isLandscape
                         binding.textRemaining.text = getString(R.string.candidates_remaining, it.size)
+                        // 「残りの候補をすべてしない」は2件以上のときだけ出す（#118）
+                        invalidateOptionsMenu()
                         // 停止したあと、決めていない候補がなくなったら閉じる
                         if (closing && it.isEmpty() && !ListeningHub.isRunning) finish()
                     }
@@ -466,6 +486,7 @@ class ListeningActivity : AppCompatActivity() {
     companion object {
         /** false なら開いても聞き取りを始めない（候補を決めに来ただけのとき） */
         const val EXTRA_START = "jp.mimimemo.extra.START"
+        private const val MENU_REJECT_ALL = 1
         private const val SHARE_TARGET = "jp.mimimemo.ShareTarget"
     }
 }
