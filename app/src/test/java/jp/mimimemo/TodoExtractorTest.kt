@@ -56,7 +56,11 @@ class TodoExtractorTest {
         fun title(s: String) = e.extractByRule(s).title
         assertEquals("スライド作る", title("スライド作っといて"))
         assertEquals("次回、教科書を持ってくる", title("次回、教科書を持ってきてね"))
-        assertEquals("レポートを出して", title("レポートを明日までに出して"))
+        assertEquals("レポートを出す", title("レポートを明日までに出して"))
+        // 「返して」「出しといてね」なども辞書形にする（#71）
+        assertEquals("本を返す", title("本を返してね"))
+        assertEquals("美容院予約する", title("土曜に美容院予約しとこう"))
+        assertEquals("統計の過去問解いとく", title("統計の過去問解いとかないとまずい"))
         assertEquals("課題を出しておく", title("15日までに課題を出しておいてね"))
         assertEquals("グループのスライドを準備する", title("じゃあ金曜までにグループのスライドを準備して"))
     }
