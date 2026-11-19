@@ -388,6 +388,7 @@ class ListeningActivity : AppCompatActivity() {
     private fun acceptCandidate(candidate: Todo, edited: Todo = candidate) {
         val index = ListeningHub.removeCandidate(candidate) ?: return
         val id = db.insert(edited.copy(id = 0, createdAt = LocalDateTime.now()))
+        ListeningHub.dropSameAs(edited)
         showUndo(getString(R.string.candidate_added, edited.title)) {
             db.delete(id)
             ListeningHub.restoreCandidate(candidate, index)

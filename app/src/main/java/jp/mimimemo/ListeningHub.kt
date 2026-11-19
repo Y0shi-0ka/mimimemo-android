@@ -108,9 +108,17 @@ object ListeningHub {
         _lines.update { lines -> lines.map { if (it.id in ids) it.copy(candidate = true) else it } }
     }
 
-    /** 候補を束の後ろに足す。触っている最中のカードは入れ替えない */
+    /**
+     * 候補を束の後ろに足す。触っている最中のカードは入れ替えない。
+     * 束にすでに同じ内容があれば足さない（始め直すと重複の記録は空になるため、#91）
+     */
     internal fun addCandidate(todo: Todo) {
-        updateCandidates { it + todo.copy(id = nextTempId--) }
+        updateCandidates { if (CandidateDeduper.isAlreadyListed(todo, it)) it else it + todo.copy(id = nextTempId--) }
+    }
+
+    /** ToDo を追加したら、同じ内容の残りの候補も外す（二重に追加しないため、#91） */
+    fun dropSameAs(added: Todo) {
+        updateCandidates { list -> list.filterNot { CandidateDeduper.isAlreadyListed(it, listOf(added)) } }
     }
 
     /** 候補を束から外して、元の位置を返す（元に戻すときに使う） */
