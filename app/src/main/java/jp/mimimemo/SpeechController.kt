@@ -20,7 +20,10 @@ import androidx.annotation.RequiresApi
  * - Android 12 以降の createOnDeviceSpeechRecognizer だけを使う
  * - 端末内認識が使えない端末では通常の認識（サーバに音声が送られることがある）には切り替えず、
  *   [FatalError.OnDeviceUnavailable] を返す。画面側は手入力だけで使えるようにする（issue #9）
- * - 1文の認識が終わる・無音で止まるたびに、自動で次の聞き取りを始める
+ * - Android 13 以降は連続認識（segmented session）でマイクを開けたまま、区切りごとに結果を受け取る。
+ *   1文ごとに起動し直さないので、区切りの間の言葉を落としにくい（issue #42）。
+ *   連続認識に対応していない認識器では、1文の認識が終わる・無音で止まるたびに自動で次を始める
+ * - 結果の空白を取り除き、複数の候補からキーワードを含むものを選ぶ（[RecognizedText]）
  * - 日本語モデルが端末にないときはダウンロードを頼み、入るまで待ってから自動で始める（issue #14）
  * - 音声データは受け取らず、保存もしない（onBufferReceived は何もしない）
  *
@@ -31,6 +34,8 @@ class SpeechController(
     private val listener: ResultListener,
     /** 聞き取りやすくしたい言葉（キーワード辞書など）。聞き取りを始めるたびに読む */
     private val vocabulary: () -> List<String> = { emptyList() },
+    /** 認識の候補が複数あるとき、これに当てはまるもの（キーワードを含むなど）を選ぶ */
+    private val prefer: (String) -> Boolean = { false },
 ) : RecognitionListener {
 
     interface ResultListener {
@@ -78,8 +83,18 @@ class SpeechController(
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ja-JP")
         putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
-        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
+        putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, MAX_RESULTS)
         putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, context.packageName)
+        putExtra(RecognizerIntent.EXTRA_PREFER_OFFLINE, true)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            // 連続認識：マイクを開けたまま、区切りごとに onSegmentResults で返してもらう。
+            // 1回の長さは SESSION_MS。終わったら onEndOfSegmentedSession が来るので始め直す
+            putExtra(RecognizerIntent.EXTRA_SEGMENTED_SESSION, RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS)
+            putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, SESSION_MS)
+            // 句読点などの整形。対応していない認識器は無視する
+            putExtra(RecognizerIntent.EXTRA_ENABLE_FORMATTING, RecognizerIntent.FORMATTING_OPTIMIZE_QUALITY)
+            putExtra(RecognizerIntent.EXTRA_HIDE_PARTIAL_TRAILING_PUNCTUATION, true)
+        }
     }
 
     fun start() {
@@ -246,17 +261,39 @@ class SpeechController(
 
     override fun onPartialResults(partialResults: Bundle?) {
         val text = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+            ?.let(RecognizedText::normalize)
         if (!text.isNullOrBlank()) listener.onPartial(text)
     }
 
+    /** 連続認識に対応していない認識器：1文ごとにここへ来るので、次を始める */
     override fun onResults(results: Bundle?) {
-        consecutiveErrors = 0
-        modelIsWorking()
-        val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()?.trim()
-        Log.d(TAG, "onResults chars=${text?.length ?: 0}")
-        if (!text.isNullOrEmpty()) listener.onSentence(text)
+        deliver(results, "onResults")
         listener.onStateChanged(State.LISTENING)
         restart()
+    }
+
+    /** 連続認識：区切りごとにここへ来る。マイクは開けたままなので始め直さない */
+    override fun onSegmentResults(segmentResults: Bundle) {
+        deliver(segmentResults, "onSegmentResults")
+        listener.onStateChanged(State.LISTENING)
+    }
+
+    /** 連続認識の1回分（SESSION_MS）が終わった。続けて次を始める */
+    override fun onEndOfSegmentedSession() {
+        Log.d(TAG, "onEndOfSegmentedSession")
+        if (!running) return
+        listener.onStateChanged(State.LISTENING)
+        restart()
+    }
+
+    private fun deliver(results: Bundle?, from: String) {
+        consecutiveErrors = 0
+        modelIsWorking()
+        val hypotheses = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION).orEmpty()
+        val text = RecognizedText.choose(hypotheses, prefer)
+        // 認識した文そのものは出さない（issue #17）
+        Log.d(TAG, "$from hypotheses=${hypotheses.size} chars=${text?.length ?: 0}")
+        if (!text.isNullOrEmpty()) listener.onSentence(text)
     }
 
     override fun onError(error: Int) {
@@ -301,6 +338,12 @@ class SpeechController(
         const val POLL_INTERVAL_MS = 2000L
         const val MAX_INSTALLED_RETRIES = 3
         const val MAX_BIASING_WORDS = 100
+
+        /** 受け取る認識の候補の数（issue #42） */
+        const val MAX_RESULTS = 5
+
+        /** 連続認識1回の長さ。終わったらすぐ始め直す */
+        const val SESSION_MS = 5 * 60_000
 
         /** 確認の画面が出るまで少しかかるので、頼んだ直後は「まだ始まっていない」と判定しないよう待つ */
         const val POLL_AFTER_REQUEST_MS = 4000L
