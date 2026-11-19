@@ -260,7 +260,8 @@ class ListeningService : Service(), SpeechController.ResultListener {
         }
         scope.launch {
             ListeningHub.setAnalyzing(true)
-            val found = context.map { null } + findCandidates(sentences)
+            // 「あと卵もね」のような直前の候補の続きも候補にする（#80）
+            val found = context.map { null } + SentenceBatch.continueFromPrevious(sentences, findCandidates(sentences))
             val filled = SentenceBatch.fillDueFromContext(context + sentences, found) { parser.parse(it.text, it.on) }
                 .drop(context.size)
             val marked = mutableSetOf<Long>()

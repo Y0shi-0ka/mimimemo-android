@@ -72,9 +72,13 @@ class TodoExtractor(
      */
     internal fun isCandidate(sentence: String): Boolean {
         if (sentence.isBlank()) return false
-        if (keywords().any { it.isNotBlank() && sentence.contains(it) }) return true
         val body = sentence.trim().trimEnd(*TRAILING_PUNCT).replace(TRAILING_PARTICLE_END, "")
-        if (TASK_EXPRESSION.containsMatchIn(body) || TASK_ENDING.containsMatchIn(body)) return true
+        val task = TASK_EXPRESSION.containsMatchIn(body) || TASK_ENDING.containsMatchIn(body)
+        // 過去のこと（「課題も終わった」）と質問（「何の課題？」）は、依頼・義務の言い方がなければ拾わない（#80）
+        if (!task && (PAST_ENDING.containsMatchIn(body) || QUESTION.containsMatchIn(body))) return false
+        if (task || keywords().any { it.isNotBlank() && sentence.contains(it) }) return true
+        // 自分が引き受ける言い方（「私がまとめるね」「俺は図を作るわ」）
+        if (COMMITMENT.containsMatchIn(body)) return true
         return ACTION_ENDING.containsMatchIn(body) && parser.find(sentence, today()) != null
     }
 
@@ -109,6 +113,13 @@ class TodoExtractor(
             if (dateRange.first == 0) s = s.replace(LEADING_PARTICLE, "")
         }
         s = s.trim().replace(LEADING_FILLER, "").trimStart(*SEPARATORS)
+        // 前置き（そういえば・やばい・うん、あ、）と、誰が言ったか・誰がやるか（先生が・私が）を外す（#80）
+        s = s.replace(LEADING_INTERJECTION, "").replace(PERSON, "").trimStart(*SEPARATORS)
+        // 文末の引用（〜って言ってた・〜って頼まれてた）を外す。残った命令の形（出せ）は「出す」に直す
+        QUOTE_TAIL.find(s)?.let { m ->
+            s = s.substring(0, m.range.first)
+            s = s.replace(IMPERATIVE) { im -> im.groupValues[1] + (E_TO_U[im.groupValues[2][0]] ?: im.groupValues[2]) }
+        }
 
         var prev: String
         do {
@@ -173,11 +184,41 @@ class TodoExtractor(
         /** 依頼・予定・義務の言い方（#66）。辞書になくても候補にする */
         private val TASK_EXPRESSION = Regex(
             "なきゃ|なくちゃ|ないと(?:いけない|ダメ|だめ)?$|なければ(?:いけない|ならない)|ないといけない|必要がある|" +
-                "予定|つもり|て(?:ください|下さい|くれる|くれない|ほしい|欲しい)|ておいて|といて|頼む|頼んだ|やっといて",
+                "[えけせてねめれげべろ]って(?:言って|言われ)|ように(?:言われ|って)|予定|つもり|て(?:ください|下さい|くれる|くれない|ほしい|欲しい|もらえる|もらっていい)|ておいて|といて|でおいて|頼む|頼んだ|頼まれ|やっといて",
         )
 
         /** 文の終わりにだけ見る言い方（文の途中の「ちょっとくらい」などで誤って拾わないように） */
-        private val TASK_ENDING = Regex("(?:ておく|とく|ておきます|ときます)$")
+        private val TASK_ENDING = Regex("(?:ておく|とく|ておきます|ときます|でおく|どく|でおきます)$")
+
+        /** 過去のこと（依頼・義務の言い方がなければ拾わない、#80） */
+        private val PAST_ENDING = Regex("(?:た|だ|ました|でした|ちゃった|じゃった)(?:よ|ね|わ|けど|し)?$")
+
+        /** 質問（依頼・義務の言い方がなければ拾わない、#80） */
+        private val QUESTION = Regex("(?:何|なに|どこ|いつ|誰|だれ|どう|だっけ)[^、。]{0,8}$")
+
+        /** 自分が引き受ける言い方：「私がまとめる」「俺は図を作る」（#80） */
+        private val COMMITMENT = Regex("(?:私|わたし|俺|僕|ぼく|自分|うち)(?:が|は)[^、。]{1,20}[うくすつぬぶむるぐ]$")
+
+        /** 題名から外す前置き（#80） */
+        private val LEADING_INTERJECTION = Regex(
+            "^(?:(?:そういえば|そう言えば|やばい|やべ|あっ?|うん|ねえ|ねぇ|ちょっと|まあ|わかった|了解|オッケー|じゃ|それで)[、,\\s　]*)+",
+        )
+
+        /** 題名から外す、言った人・やる人（#80） */
+        private val PERSON = Regex(
+            "(?:先生|教授|店長|先輩|部長|お母さん|お父さん|母|父|私|わたし|俺|僕|ぼく|自分|うち)(?:が|は|に|から)",
+        )
+
+        /** 文末の引用（#80） */
+        private val QUOTE_TAIL = Regex("(?:って|と)(?:[^、。]{0,10}に)?(?:言って(?:た|いた|ました)?|言われ[^、。]*|頼まれ[^、。]*|聞いた)$|(?:だ)?って$")
+
+        /** 引用の中の命令の形（出せ・書け）。2つ目のかたまりがエ段 */
+        private val IMPERATIVE = Regex("([一-龯])([えけせてねめれげべ])$")
+
+        private val E_TO_U = mapOf(
+            'え' to "う", 'け' to "く", 'せ' to "す", 'て' to "つ", 'ね' to "ぬ",
+            'め' to "む", 'れ' to "る", 'げ' to "ぐ", 'べ' to "ぶ",
+        )
 
         /** 期限と一緒にあれば候補にする、動作の言い方（文の終わり） */
         private val ACTION_ENDING = Regex(
@@ -210,20 +251,22 @@ class TodoExtractor(
         /** 期限を伝えるだけの文で、日付のほかに残ってよい言葉 */
         private val NOTICE_WORDS = setOf("提出", "提出日", "締め切り", "締め切り日", "締切", "締切日", "期限", "期日")
         private val NOTICE_NOISE = Regex("[、。，．,.!！?？\\s　]")
-        private val NOTICE_COPULA = Regex("(?:です|でした|だ|になります|になってます|ね|よ|って)$")
+        private val NOTICE_COPULA = Regex("(?:です|でした|だ|になります|になってます|ね|よ|って|で)$")
         private val NOTICE_PARTICLES = charArrayOf('が', 'は', 'の', 'も')
 
         private val AFTER_DATE = Regex("^(?:までに|まで|中に|には|に|の|は)[、,\\s　]*")
 
         private val LEADING_FILLER =
-            Regex("^(?:(?:えー+と?|ええと|えっと|あのー*|あー+|じゃあ|では|それでは|それと|あと|みなさん|皆さん|みんな)[、,\\s　]*)+")
+            Regex("^(?:(?:えー+と?|ええと|えっと|あのー*|あー+|じゃあ|では|それでは|それと|あと)[、,\\s　]*|(?:みなさん|皆さん|みんな)[、,\\s　]+)+")
 
         private val TRAILING_POLITE =
-            Regex("(?:ねー*|よー*|な|ください|下さい|お願いします|お願い|おねがい|ほしい|欲しい)$")
+            Regex("(?:ねー*|よー*|な|わ|ください|下さい|お願いします|お願い|おねがい|ほしい|欲しい|(?:くれる|くれない|もらえる|もらえない|もらっていい)か?)$")
 
         /** 依頼の言い方を「〜する」の形に直す。上から順に最初に当てはまったものだけ使う */
         private val REQUEST_FORMS = listOf(
-            Regex("([一-龯ァ-ヶー]{2,})(?:しといて|しておいて|してきて|して)$") to "$1する",
+            Regex("([一-龯ァ-ヶー]{2,})(?:しといて|しておいて|してきて|してもらえる|してくれる|してくれない|して)$") to "$1する",
+            Regex("(?:読んでおいて|読んどいて|読んでおく|読んどく)$") to "読む",
+            Regex("([わ取帰入切送作守座乗止])って$") to "$1る",
             Regex("(?:やっといて|やっておいて)$") to "やる",
             Regex("(?:作っといて|作っておいて|作って)$") to "作る",
             Regex("(?:持ってきて|持って来て)$") to "持ってくる",
