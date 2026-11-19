@@ -36,6 +36,9 @@ class TodoAdapter(
     /** 完了の見出しを押したとき */
     var onToggleDone: () -> Unit = {}
 
+    /** タグの札を押したとき（そのタグだけにする、#109）。null なら押せない */
+    var onTagClick: ((String) -> Unit)? = null
+
     class ItemHolder(val binding: ItemTodoBinding) : RecyclerView.ViewHolder(binding.root)
     class HeaderHolder(val text: TextView) : RecyclerView.ViewHolder(text)
 
@@ -124,6 +127,9 @@ class TodoAdapter(
         b.root.alpha = if (todo.done) 0.55f else 1f
         b.textTag.isVisible = todo.tag != Todo.TAG_OTHER
         b.textTag.text = todo.tag
+        val tagClick = onTagClick
+        if (tagClick != null) b.textTag.setOnClickListener { tagClick(todo.tag) } else b.textTag.setOnClickListener(null)
+        b.textTag.isClickable = tagClick != null
         b.rowMeta.isVisible = b.textDue.isVisible || b.textTag.isVisible
 
         b.textSource.isVisible = showSource && !todo.sourceText.isNullOrBlank()
