@@ -1,10 +1,12 @@
 package jp.mimimemo
 
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -57,7 +59,11 @@ class TodoEditActivity : AppCompatActivity() {
             tag = savedInstanceState.getString(STATE_TAG) ?: Todo.TAG_OTHER
             repeat = Repeat.fromKey(savedInstanceState.getString(STATE_REPEAT))
         }
-        ChoiceChips.bindDue(binding.chipsDue, due) { due = it }
+        ChoiceChips.bindDue(binding.chipsDue, due) {
+            due = it
+            // 期限があるときだけ「カレンダーに入れる」を出す
+            invalidateOptionsMenu()
+        }
         ChoiceChips.bindTag(binding.chipsTag, tags, tag) { tag = it }
         ChoiceChips.bindRepeat(binding.chipsRepeat, repeat) { repeat = it }
 
@@ -85,6 +91,7 @@ class TodoEditActivity : AppCompatActivity() {
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
+        if (repeatDue() != null) menu.add(Menu.NONE, MENU_CALENDAR, Menu.NONE, R.string.menu_calendar)
         if (existing != null) {
             menu.add(Menu.NONE, MENU_DELETE, Menu.NONE, R.string.menu_delete)
                 .setIcon(R.drawable.ic_delete)
@@ -102,7 +109,22 @@ class TodoEditActivity : AppCompatActivity() {
             confirmDelete()
             true
         }
+        MENU_CALENDAR -> {
+            addToCalendar()
+            true
+        }
         else -> super.onOptionsItemSelected(item)
+    }
+
+    /** 端末のカレンダーアプリの予定作成画面を開く（#111）。カレンダーアプリがなければ知らせる */
+    private fun addToCalendar() {
+        val day = repeatDue() ?: return
+        val title = binding.editTitle.text?.toString()?.trim().orEmpty().ifEmpty { existing?.title.orEmpty() }
+        try {
+            startActivity(CalendarExport.intent(title, day, repeat))
+        } catch (e: ActivityNotFoundException) {
+            Toast.makeText(this, R.string.calendar_missing, Toast.LENGTH_SHORT).show()
+        }
     }
 
     /** 繰り返すのに期限がなければ今日からにする（期限がないと次の日付へ進められないため、#107） */
@@ -145,6 +167,7 @@ class TodoEditActivity : AppCompatActivity() {
         private const val STATE_TAG = "tag"
         private const val STATE_REPEAT = "repeat"
         private const val MENU_DELETE = 1
+        private const val MENU_CALENDAR = 2
 
         fun intent(context: Context, id: Long?): Intent =
             Intent(context, TodoEditActivity::class.java).apply {
