@@ -81,7 +81,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
 
     override fun onDestroy() {
         handler.removeCallbacksAndMessages(null)
-        if (started) speech.stop()
+        speech.stop()
         scope.cancel()
         ListeningHub.setPartial("")
         if (ListeningHub.isRunning) ListeningHub.setStatus(ListeningHub.Status.Off)
@@ -110,15 +110,18 @@ class ListeningService : Service(), SpeechController.ResultListener {
         speech.start()
     }
 
-    /** ためた分をまとめてから止める */
+    /** 話している途中の文を受け取り（#53）、ためた分をまとめてから止める */
     private fun stopListening() {
-        if (started) speech.stop()
+        val wasStarted = started
         started = false
-        flush {
-            ListeningHub.setStatus(ListeningHub.Status.Off)
-            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
-            stopSelf()
+        val stopAll = {
+            flush {
+                ListeningHub.setStatus(ListeningHub.Status.Off)
+                ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
+                stopSelf()
+            }
         }
+        if (wasStarted) speech.finish(stopAll) else stopAll()
     }
 
     // ---- SpeechController.ResultListener ----

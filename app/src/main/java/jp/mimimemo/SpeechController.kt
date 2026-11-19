@@ -79,6 +79,9 @@ class SpeechController(
     private var consecutiveErrors = 0
     private val handler = Handler(Looper.getMainLooper())
 
+    /** [finish] の途中。最後の結果を待っている（issue #53） */
+    private var onFinished: (() -> Unit)? = null
+
     private val recognizeIntent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
         putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
         putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ja-JP")
@@ -125,7 +128,32 @@ class SpeechController(
         listen()
     }
 
+    /**
+     * 話している途中の文を確定させてから止める（issue #53）。
+     * 「ここまでを確定して」と頼み、最後の結果が来たら（来なくても [FINISH_TIMEOUT_MS] で）止めて [onDone] を呼ぶ。
+     */
+    fun finish(onDone: () -> Unit) {
+        val r = recognizer
+        if (!running || r == null || waitingModel) {
+            stop()
+            onDone()
+            return
+        }
+        onFinished = onDone
+        handler.removeCallbacksAndMessages(null)
+        r.stopListening()
+        handler.postDelayed({ completeFinish() }, FINISH_TIMEOUT_MS)
+    }
+
+    private fun completeFinish() {
+        val done = onFinished ?: return
+        onFinished = null
+        stop()
+        done()
+    }
+
     fun stop() {
+        onFinished = null
         running = false
         waitingModel = false
         handler.removeCallbacksAndMessages(null)
@@ -154,6 +182,11 @@ class SpeechController(
 
     private fun restart(delayMs: Long = RESTART_DELAY_MS, recreate: Boolean = false) {
         if (!running) return
+        // 止める途中なら始め直さずに止める
+        if (onFinished != null) {
+            completeFinish()
+            return
+        }
         handler.removeCallbacksAndMessages(null)
         handler.postDelayed({
             if (recreate) createRecognizer()
@@ -282,6 +315,10 @@ class SpeechController(
     override fun onEndOfSegmentedSession() {
         Log.d(TAG, "onEndOfSegmentedSession")
         if (!running) return
+        if (onFinished != null) {
+            completeFinish()
+            return
+        }
         listener.onStateChanged(State.LISTENING)
         restart()
     }
@@ -299,6 +336,11 @@ class SpeechController(
     override fun onError(error: Int) {
         if (!running) return
         Log.d(TAG, "onError code=$error")
+        // 止める途中のエラー（無音など）は、そのまま止める
+        if (onFinished != null) {
+            completeFinish()
+            return
+        }
         when (error) {
             // 無音・聞き取れなかった：そのまま次を聞く
             SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> {
@@ -348,6 +390,9 @@ class SpeechController(
         /** 確認の画面が出るまで少しかかるので、頼んだ直後は「まだ始まっていない」と判定しないよう待つ */
         const val POLL_AFTER_REQUEST_MS = 4000L
         const val RESTART_DELAY_MS = 200L
+
+        /** 止めるとき、最後の結果を待つ長さ */
+        const val FINISH_TIMEOUT_MS = 1500L
         const val BUSY_DELAY_MS = 1000L
         const val MAX_CONSECUTIVE_ERRORS = 5
 
