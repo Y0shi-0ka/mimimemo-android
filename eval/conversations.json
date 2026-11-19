@@ -519,7 +519,6 @@
       "tasks": [
         2
       ],
-      "split": "holdout",
       "title_has": {
         "2": "電話"
       }
@@ -533,8 +532,7 @@
       ],
       "tasks": [
         3
-      ],
-      "split": "holdout"
+      ]
     },
     {
       "name": "ゴミ出し",
@@ -546,7 +544,6 @@
       "tasks": [
         3
       ],
-      "split": "holdout",
       "title_has": {
         "3": "ゴミ"
       }
@@ -561,7 +558,6 @@
       "tasks": [
         2
       ],
-      "split": "holdout",
       "title_has": {
         "2": "過去問"
       }
@@ -573,8 +569,7 @@
         "最後泣いちゃった",
         "また行きたいね"
       ],
-      "tasks": [],
-      "split": "holdout"
+      "tasks": []
     },
     {
       "name": "提出物の確認",
@@ -585,8 +580,7 @@
       ],
       "tasks": [
         3
-      ],
-      "split": "holdout"
+      ]
     },
     {
       "name": "美容院",
@@ -597,7 +591,6 @@
       "tasks": [
         2
       ],
-      "split": "holdout",
       "title_has": {
         "2": "美容院"
       }
@@ -612,7 +605,6 @@
       "tasks": [
         2
       ],
-      "split": "holdout",
       "title_has": {
         "2": "トイレットペーパー"
       }
@@ -627,7 +619,6 @@
       "tasks": [
         3
       ],
-      "split": "holdout",
       "title_has": {
         "3": "部費"
       }
@@ -639,8 +630,7 @@
         "先方からまだ返事来てない",
         "そっか"
       ],
-      "tasks": [],
-      "split": "holdout"
+      "tasks": []
     },
     {
       "name": "授業変更",
@@ -652,7 +642,6 @@
       "tasks": [
         3
       ],
-      "split": "holdout",
       "title_has": {
         "3": "課題"
       }
@@ -667,7 +656,6 @@
       "tasks": [
         2
       ],
-      "split": "holdout",
       "title_has": {
         "2": "歯医者"
       }
@@ -682,7 +670,6 @@
       "tasks": [
         3
       ],
-      "split": "holdout",
       "title_has": {
         "3": "本"
       }
@@ -697,7 +684,6 @@
       "tasks": [
         2
       ],
-      "split": "holdout",
       "title_has": {
         "2": "傘"
       }
@@ -711,8 +697,7 @@
       ],
       "tasks": [
         3
-      ],
-      "split": "holdout"
+      ]
     },
     {
       "name": "お礼",
@@ -721,8 +706,7 @@
         "どういたしまして",
         "今度何かおごるね"
       ],
-      "tasks": [],
-      "split": "holdout"
+      "tasks": []
     },
     {
       "name": "買い足し",
@@ -735,7 +719,6 @@
         2,
         3
       ],
-      "split": "holdout",
       "title_has": {
         "3": "洗剤"
       }
@@ -751,7 +734,6 @@
         2,
         3
       ],
-      "split": "holdout",
       "title_has": {
         "3": "原稿"
       }
