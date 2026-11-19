@@ -73,7 +73,9 @@ class TodoExtractor(
     internal fun isCandidate(sentence: String): Boolean {
         if (sentence.isBlank()) return false
         val body = sentence.trim().trimEnd(*TRAILING_PUNCT).replace(TRAILING_PARTICLE_END, "")
-        val task = TASK_EXPRESSION.containsMatchIn(body) || TASK_ENDING.containsMatchIn(body)
+        val task = TASK_EXPRESSION.containsMatchIn(body) || TASK_ENDING.containsMatchIn(body) ||
+            // 「返してね」「出してね、先生怒ってた」：「〜てね」の頼み方（#71）。文末の「ね」を落とす前の文で見る
+            REQUEST_NE.containsMatchIn(sentence)
         // 過去のこと（「課題も終わった」）と質問（「何の課題？」）は、依頼・義務の言い方がなければ拾わない（#80）
         if (!task && (PAST_ENDING.containsMatchIn(body) || QUESTION.containsMatchIn(body))) return false
         if (task || keywords().any { it.isNotBlank() && sentence.contains(it) }) return true
@@ -184,11 +186,20 @@ class TodoExtractor(
         /** 依頼・予定・義務の言い方（#66）。辞書になくても候補にする */
         private val TASK_EXPRESSION = Regex(
             "なきゃ|なくちゃ|ないと(?:いけない|ダメ|だめ)?$|なければ(?:いけない|ならない)|ないといけない|必要がある|" +
-                "[えけせてねめれげべろ]って(?:言って|言われ)|ように(?:言われ|って)|予定|つもり|て(?:ください|下さい|くれる|くれない|ほしい|欲しい|もらえる|もらっていい)|ておいて|といて|でおいて|頼む|頼んだ|頼まれ|やっといて",
+                "[えけせてねめれげべろ]って(?:言って|言われ)|ように(?:言われ|って)|予定|つもり|て(?:ください|下さい|くれる|くれない|ほしい|欲しい|もらえる|もらっていい)|ておいて|といて|でおいて|頼む|頼んだ|頼まれ|やっといて|" +
+                // 「〜しないとまずい」「買ってきてだって」（伝言）（#71）
+                "ないと(?:まずい|やばい|困る)|(?:てきて|できて|して|(?<!にと)って|んで)(?:ほしい)?だって$",
         )
 
         /** 文の終わりにだけ見る言い方（文の途中の「ちょっとくらい」などで誤って拾わないように） */
-        private val TASK_ENDING = Regex("(?:ておく|とく|ておきます|ときます|でおく|どく|でおきます|てきて|できて)$")
+        private val TASK_ENDING = Regex(
+            "(?:ておく|とく|ておきます|ときます|でおく|どく|でおきます|てきて|できて|" +
+                // 「予約しとこう」「書いておこう」（自分に言う、#71）
+                "ておこう|とこう|でおこう|どこう)$",
+        )
+
+        /** 「〜てね」の頼み方（#71）。「だってね」「ですってね」（聞いた話）は除く */
+        private val REQUEST_NE = Regex("(?:して|(?<!だっ)(?<!すっ)[っいき]て|[んい]で)ね")
 
         /** 過去のこと（依頼・義務の言い方がなければ拾わない、#80） */
         private val PAST_ENDING = Regex("(?:た|だ|ました|でした|ちゃった|じゃった)(?:よ|ね|わ|けど|し)?$")
@@ -234,7 +245,7 @@ class TodoExtractor(
 
         /** 義務の言い方。1つ目のかたまりは「なきゃ」などの前の形 */
         private val OBLIGATION = Regex(
-            "([ぁ-ゖ一-龯]{0,1}[かがさたなばまらわしこ見寝出来着居])(?:なきゃ|なくちゃ|ないと|なければ)(?:いけない|ならない|ダメ|だめ)?$",
+            "([ぁ-ゖ一-龯]{0,1}[かがさたなばまらわしこ見寝出来着居])(?:なきゃ|なくちゃ|ないと|なければ)(?:いけない|ならない|ダメ|だめ|まずい|やばい|困る)?$",
         )
 
         /** 五段の「ない」の前の形（ア段）→ 辞書形の終わり（ウ段） */
@@ -265,13 +276,18 @@ class TodoExtractor(
         /** 依頼の言い方を「〜する」の形に直す。上から順に最初に当てはまったものだけ使う */
         private val REQUEST_FORMS = listOf(
             Regex("([一-龯ァ-ヶー]{2,})(?:しといて|しておいて|してきて|してもらえる|してくれる|してくれない|して)$") to "$1する",
+            Regex("([一-龯ァ-ヶー]{2,})(?:しとこう|しておこう)$") to "$1する",
             Regex("(?:読んでおいて|読んどいて|読んでおく|読んどく)$") to "読む",
+            // 「返して」「出して」→「返す」「出す」（#71）
+            Regex("([返出消貸話探直渡回試戻押干])して$") to "$1す",
             Regex("([わ取帰入切送作守座乗止])って$") to "$1る",
             Regex("(?:やっといて|やっておいて)$") to "やる",
             Regex("(?:作っといて|作っておいて|作って)$") to "作る",
             Regex("(?:持ってきて|持って来て)$") to "持ってくる",
             Regex("ておいて$") to "ておく",
             Regex("といて$") to "とく",
+            Regex("(?:ておこう)$") to "ておく",
+            Regex("とこう$") to "とく",
             Regex("てきて$") to "てくる",
         )
 

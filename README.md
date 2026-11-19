@@ -85,6 +85,8 @@ adb push model.litertlm /sdcard/Android/data/jp.mimimemo/files/models/
 | ルールと AI のどちらか（採用） | 0.63 | 0.96 |
 | AI（Qwen3-0.6B）だけ | 0.43 | 0.39 |
 
+上の表は最初の16例での比較。その後ルールを直し（#80・#71）、例を54件（うち38件はルールを直すときに見ていない例）に増やしたときのルールだけの成績は、全体で適合率 0.96・再現率 0.86、見ていない例だけで 0.97・0.80。AI は PC の空きが足りず、54例ではまだ流していない。
+
 ```sh
 python -m venv llmenv && llmenv/Scripts/pip install litert-lm-api==0.19.2
 ./gradlew testDebugUnitTest --tests jp.mimimemo.TodoEvalTest   # ルールの結果を app/build/eval-rules.json に書く
