@@ -25,6 +25,16 @@ object DueFormatter {
         return "${short(due)}・$relative"
     }
 
+    /** 候補を聞いた時刻：今日なら「14:05」、昨日なら「昨日 14:05」、それより前は「11/18 14:05」（#62） */
+    fun heard(at: java.time.LocalDateTime, today: LocalDate): String {
+        val time = "%d:%02d".format(at.hour, at.minute)
+        return when (at.toLocalDate()) {
+            today -> time
+            today.minusDays(1) -> "昨日 $time"
+            else -> "${at.monthValue}/${at.dayOfMonth} $time"
+        }
+    }
+
     /** 読み上げ用：「11月17日」 */
     fun spoken(date: LocalDate): String = "${date.monthValue}月${date.dayOfMonth}日"
 }

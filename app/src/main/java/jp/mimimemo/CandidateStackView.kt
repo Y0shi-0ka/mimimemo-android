@@ -75,6 +75,7 @@ class CandidateStackView @JvmOverloads constructor(
     }
 
     private fun bind(b: ItemCandidateCardBinding, todo: Todo) {
+        b.textHeard.text = DueFormatter.heard(todo.createdAt, java.time.LocalDate.now())
         b.textTitle.text = todo.title
         b.textDue.isVisible = todo.due != null
         todo.due?.let { b.textDue.text = DueFormatter.short(it) }

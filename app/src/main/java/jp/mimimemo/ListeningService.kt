@@ -24,7 +24,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
-import java.time.LocalDate
+import java.time.LocalDateTime
 
 /**
  * 画面を閉じても聞き取りを続ける前面サービス（issue #44）。
@@ -176,7 +176,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
 
     private fun addSentence(text: String) {
         val id = ListeningHub.addLine(text)
-        batch.add(text, LocalDate.now())
+        batch.add(text, LocalDateTime.now())
         batchLineIds += id
         if (batch.size == 1) handler.postDelayed(flushBatch, BATCH_MS)
         ListeningHub.setPending(batch.size)
@@ -202,7 +202,8 @@ class ListeningService : Service(), SpeechController.ResultListener {
                 // 言い直し・聞き返しで同じ内容がまた来たら、候補は増やさない
                 if (todo == null || !deduper.isNew(todo)) return@forEachIndexed
                 marked += ids[i]
-                ListeningHub.addCandidate(todo)
+                // 候補には聞いた時刻を持たせる（カードに出す、#62）。追加するときに登録日時は付け直す
+                ListeningHub.addCandidate(todo.copy(createdAt = sentences[i].at))
             }
             ListeningHub.markCandidates(marked)
             updateNotification()
