@@ -194,7 +194,8 @@ class ListeningService : Service(), SpeechController.ResultListener {
 
     override fun onSentence(text: String) {
         ListeningHub.setPartial("")
-        addSentence(text)
+        // 連続認識の区切りには文がいくつも入るので、文に分けてためる（#69）
+        RecognizedText.splitSentences(text).forEach(::addSentence)
     }
 
     override fun onPartial(text: String) {
