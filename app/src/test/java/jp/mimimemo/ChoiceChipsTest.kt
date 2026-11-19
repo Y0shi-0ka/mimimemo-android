@@ -43,4 +43,12 @@ class ChoiceChipsTest {
         val r = labels(sun).map { it.first }
         assertEquals(listOf("なし", "今日", "明日", "来週金曜"), r)
     }
+
+    @Test
+    fun heardTime() {
+        val today = LocalDate.of(2026, 11, 20)
+        assertEquals("14:05", DueFormatter.heard(today.atTime(14, 5), today))
+        assertEquals("昨日 9:00", DueFormatter.heard(today.minusDays(1).atTime(9, 0), today))
+        assertEquals("11/18 23:59", DueFormatter.heard(LocalDate.of(2026, 11, 18).atTime(23, 59), today))
+    }
 }

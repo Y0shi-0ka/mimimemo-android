@@ -1,6 +1,7 @@
 package jp.mimimemo
 
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 /**
  * 聞き取った文をメモリにためておき、まとめて候補にする（issue #36）。
@@ -14,8 +15,8 @@ import java.time.LocalDate
  */
 class SentenceBatch {
 
-    /** 聞いた文と、聞いた日 */
-    data class Heard(val text: String, val on: LocalDate)
+    /** 聞いた文と、聞いた日・時刻（時刻は候補のカードに出す、#62） */
+    data class Heard(val text: String, val on: LocalDate, val at: LocalDateTime = on.atStartOfDay())
 
     private val pending = mutableListOf<Heard>()
 
@@ -24,8 +25,8 @@ class SentenceBatch {
 
     val size: Int get() = pending.size
 
-    fun add(text: String, on: LocalDate = LocalDate.now()) {
-        pending += Heard(text, on)
+    fun add(text: String, at: LocalDateTime = LocalDateTime.now()) {
+        pending += Heard(text, at.toLocalDate(), at)
     }
 
     /**

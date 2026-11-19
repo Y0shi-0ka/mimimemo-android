@@ -5,11 +5,12 @@ import androidx.core.content.edit
 import org.json.JSONArray
 import org.json.JSONObject
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 /**
  * 決める前の候補を端末に残す（issue #55）。
  * 常時聞き取りでためた候補が、OS にアプリを止められても消えないようにする。
- * 残すのは候補（やること・期限・タグ・元の発言）だけで、音声や文字起こしの全文は残さない。
+ * 残すのは候補（やること・期限・タグ・元の発言・聞いた時刻）だけで、音声や文字起こしの全文は残さない。
  */
 class CandidateStore(context: Context) {
 
@@ -32,6 +33,7 @@ class CandidateStore(context: Context) {
                         .put("due", c.due?.toString() ?: JSONObject.NULL)
                         .put("tag", c.tag)
                         .put("source", c.sourceText ?: JSONObject.NULL)
+                        .put("heard", c.createdAt.toString())
                 }
             ).toString()
 
@@ -48,6 +50,9 @@ class CandidateStore(context: Context) {
                         due = o.optString("due").takeIf { !o.isNull("due") && it.isNotEmpty() }?.let(LocalDate::parse),
                         tag = o.optString("tag", Todo.TAG_OTHER),
                         sourceText = o.optString("source").takeIf { !o.isNull("source") },
+                        // 聞いた時刻（#62）。古い形式で残っていなければ今
+                        createdAt = o.optString("heard").takeIf { it.isNotEmpty() }
+                            ?.let { runCatching { LocalDateTime.parse(it) }.getOrNull() } ?: LocalDateTime.now(),
                     )
                 }.getOrNull()
             }

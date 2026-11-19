@@ -13,12 +13,8 @@ class CandidateStoreTest {
             Todo(id = -1, title = "レポート提出する", due = LocalDate.of(2026, 11, 23), tag = "授業", sourceText = "来週月曜までにレポート"),
             Todo(id = -2, title = "スライド作る", due = null, tag = Todo.TAG_OTHER, sourceText = null),
         )
-        // 作成日時は残さない（追加したときに付け直す）ので比べない
-        val fixed = LocalDate.of(2026, 1, 1).atStartOfDay()
-        assertEquals(
-            list.map { it.copy(createdAt = fixed) },
-            CandidateStore.decode(CandidateStore.encode(list)).map { it.copy(createdAt = fixed) },
-        )
+        // 聞いた時刻（createdAt）も残る（#62）
+        assertEquals(list, CandidateStore.decode(CandidateStore.encode(list)))
     }
 
     @Test
