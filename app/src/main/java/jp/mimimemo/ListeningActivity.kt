@@ -94,7 +94,12 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         db = TodoDbHelper(this)
         val keywords = KeywordStore(this)
         extractor = TodoExtractor(keywords = keywords::load, ai = UnavailableLocalAiClient)
-        speech = SpeechController(this, this, vocabulary = { TodoExtractor.vocabulary(keywords.load()) })
+        speech = SpeechController(
+            this,
+            this,
+            vocabulary = { TodoExtractor.vocabulary(keywords.load()) },
+            prefer = extractor::isCandidate,
+        )
 
         binding.candidateStack.onAccept = { acceptCandidate(it) }
         binding.candidateStack.onReject = { rejectCandidate(it) }
