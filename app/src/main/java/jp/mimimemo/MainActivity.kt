@@ -42,11 +42,13 @@ class MainActivity : AppCompatActivity() {
         SwipeActions.attach(
             binding.listView,
             left = SwipeAction(R.string.swipe_delete, R.drawable.ic_delete, getColor(R.color.swipe_delete)) {
-                delete(adapter.currentList[it])
+                adapter.todoAt(it)?.let(::delete)
             },
             right = SwipeAction(R.string.swipe_done, R.drawable.ic_check, getColor(R.color.swipe_positive)) {
-                markDone(adapter.currentList[it], true)
+                adapter.todoAt(it)?.let { todo -> markDone(todo, true) }
             },
+            // 見出しはスワイプしない（#49）
+            canSwipe = { adapter.todoAt(it.bindingAdapterPosition) != null },
         )
 
         // 文字入力はなくし、マイクだけにする（issue #45）。聞き取りはバックグラウンドで続く（#44）
@@ -116,7 +118,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun refresh() {
         val todos = db.findAllOrderByDue()
-        adapter.submitList(todos)
+        adapter.submitGrouped(todos)
         binding.emptyView.isVisible = todos.isEmpty()
 
         val dueTomorrow = db.findDueOn(LocalDate.now().plusDays(1))

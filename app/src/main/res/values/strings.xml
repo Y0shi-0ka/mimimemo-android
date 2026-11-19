@@ -29,6 +29,7 @@
     <string name="swipe_skip">しない</string>
     <string name="action_flush">今まとめる</string>
     <string name="due_pick">日付</string>
+    <string name="section_header">%1$s　%2$d</string>
     <string name="listening_with_candidates">聞き取り中・候補%1$d件</string>
     <string name="candidates_waiting">候補%1$d件</string>
     <string name="notification_channel">聞き取り</string>
