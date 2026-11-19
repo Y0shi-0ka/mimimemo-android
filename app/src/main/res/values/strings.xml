@@ -71,6 +71,8 @@
     <string name="repeat_advanced">「%1$s」の次は%2$sです</string>
     <string name="due_with_repeat">%1$s・%2$s</string>
     <string name="filter_tag">%1$s だけ表示中</string>
+    <string name="menu_calendar">カレンダーに入れる</string>
+    <string name="calendar_missing">カレンダーのアプリが見つかりません</string>
     <string name="label_repeat">繰り返し</string>
     <string name="repeat_none">しない</string>
     <string name="widget_more">ほか%1$d件</string>
