@@ -74,8 +74,9 @@ class DateParser {
             dayOfMonth(YearMonth.from(base).plusMonths(if (m.groupValues[1] == "来月") 1 else 0), m.int(2))
         },
         // 月末 / 来月末
-        Rule(Regex("来月末|今月末|月末")) { m, base ->
-            YearMonth.from(base).plusMonths(if (m.value == "来月末") 1 else 0).atEndOfMonth()
+        // 「今月中」「来月いっぱい」も月末とみなす（#138）
+        Rule(Regex("来月末|今月末|月末|(?:今月|来月)(?:中|いっぱい)")) { m, base ->
+            YearMonth.from(base).plusMonths(if (m.value.startsWith("来月")) 1 else 0).atEndOfMonth()
         },
         // 週末 → その週の土曜（日曜なら当日）
         Rule(Regex("今?週末")) { _, base ->

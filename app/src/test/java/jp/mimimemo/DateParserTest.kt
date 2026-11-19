@@ -68,6 +68,9 @@ class DateParserTest {
     fun otherExpressions() {
         assertEquals(LocalDate.of(2026, 11, 30), parse("月末までに"))
         assertEquals(LocalDate.of(2026, 12, 31), parse("来月末"))
+        // 「今月中」「来月いっぱい」も月末（#138）
+        assertEquals(LocalDate.of(2026, 11, 30), parse("今月中に出す"))
+        assertEquals(LocalDate.of(2026, 12, 31), parse("来月いっぱいで終わる"))
         assertEquals(LocalDate.of(2026, 12, 10), parse("来月10日"))
         assertEquals(LocalDate.of(2026, 11, 14), parse("3日後"))
         assertEquals(LocalDate.of(2026, 11, 25), parse("2週間後"))
