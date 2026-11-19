@@ -19,12 +19,11 @@ class SentenceBatchTest {
 
     private fun collectHeard(sentences: List<SentenceBatch.Heard>, context: List<SentenceBatch.Heard> = emptyList()): List<Todo?> {
         val all = context + sentences
-        val todos = context.map { null } + sentences.map { extractor.extractByRuleOrNull(it.text, it.on) }
+        // アプリと同じ判定（期限を伝えるだけの文は候補にしない）を使う
+        val todos = context.map { null } + sentences.map { kotlinx.coroutines.runBlocking { extractor.extract(it.text, it.on) } }
         return SentenceBatch.fillDueFromContext(all, todos) { parser.parse(it.text, it.on) }.drop(context.size)
     }
 
-    private fun TodoExtractor.extractByRuleOrNull(text: String, on: LocalDate): Todo? =
-        if (TodoExtractor.DEFAULT_KEYWORDS.any { text.contains(it) }) extractByRule(text, on) else null
 
     @Test
     fun dueFromPreviousSentence() {
@@ -86,5 +85,13 @@ class SentenceBatchTest {
             )
         )
         assertEquals(LocalDate.of(2026, 11, 12), r2[1]?.due)
+    }
+
+    @Test
+    fun doesNotBorrowDueFromAnotherTodo() {
+        // 別の ToDo の期限は借りない（#70）
+        val r = collect(listOf("レポート出さなきゃ", "明日までに洗濯しないと"))
+        assertNull(r[0]?.due)
+        assertEquals(LocalDate.of(2026, 11, 12), r[1]?.due)
     }
 }
