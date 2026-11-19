@@ -47,6 +47,9 @@ class SentenceBatch {
 
         /**
          * 期限のない候補に、近くの文の期限を補う。直前の文、その前の文、直後の文の順に探す。
+         * 借りるのは、候補になっていない文（期限を伝えるだけの文・ただの話）からだけ。
+         * ほかの ToDo の期限は借りない（「レポート出さなきゃ」「明日までに洗濯しないと」で、
+         * レポートに洗濯の期限が付いていた、#70）。
          * @param sentences 文脈用の文も含めたすべての文
          * @param todos sentences と同じ並びの抽出結果（候補にならなかった文は null）
          * @param findDate 文から期限を探す（その文を聞いた日を基準にする）
@@ -58,7 +61,7 @@ class SentenceBatch {
         ): List<Todo?> = todos.mapIndexed { i, todo ->
             if (todo == null || todo.due != null) return@mapIndexed todo
             val due = listOf(i - 1, i - 2, i + 1)
-                .filter { it in sentences.indices }
+                .filter { it in sentences.indices && todos.getOrNull(it) == null }
                 .firstNotNullOfOrNull { findDate(sentences[it]) }
             if (due != null) todo.copy(due = due) else todo
         }
