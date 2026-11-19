@@ -13,6 +13,11 @@ import java.time.format.DateTimeFormatter
 class TodoDbHelper(context: Context) :
     SQLiteOpenHelper(context.applicationContext, DB_NAME, null, DB_VERSION) {
 
+    private val appContext = context.applicationContext
+
+    /** ToDo を変えたら、ホーム画面ウィジェットも描き直す（#97） */
+    private fun changed() = runCatching { TodoWidget.refresh(appContext) }
+
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
             """
@@ -34,18 +39,20 @@ class TodoDbHelper(context: Context) :
         onCreate(db)
     }
 
-    fun insert(todo: Todo): Long = writableDatabase.insert(TABLE, null, toValues(todo))
+    fun insert(todo: Todo): Long = writableDatabase.insert(TABLE, null, toValues(todo)).also { changed() }
 
     fun update(todo: Todo): Int =
-        writableDatabase.update(TABLE, toValues(todo), "id = ?", arrayOf(todo.id.toString()))
+        writableDatabase.update(TABLE, toValues(todo), "id = ?", arrayOf(todo.id.toString())).also { changed() }
 
     fun setDone(id: Long, done: Boolean) {
         val values = ContentValues().apply { put("done", if (done) 1 else 0) }
         writableDatabase.update(TABLE, values, "id = ?", arrayOf(id.toString()))
+        changed()
     }
 
     fun delete(id: Long) {
         writableDatabase.delete(TABLE, "id = ?", arrayOf(id.toString()))
+        changed()
     }
 
     fun findById(id: Long): Todo? = query("id = ?", arrayOf(id.toString()), null).firstOrNull()

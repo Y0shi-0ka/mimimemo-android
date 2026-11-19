@@ -60,6 +60,13 @@
     <string name="action_stop">停止</string>
     <string name="action_resume">再開する</string>
     <string name="action_start">始める</string>
+    <string name="action_start_listening">聞き取りを始める</string>
+    <string name="widget_description">期限の近いToDoと、聞き取りを始めるマイク</string>
+    <string name="menu_widget">ホーム画面に置く</string>
+    <string name="widget_more">ほか%1$d件</string>
+    <string name="widget_overdue">期限切れ</string>
+    <string name="widget_today">今日</string>
+    <string name="widget_tomorrow">明日</string>
     <string name="shared_found">共有した文章から候補を%1$d件出しました</string>
     <string name="shared_none">もう一覧にあります</string>
     <string name="manual_hint">文を入力</string>
