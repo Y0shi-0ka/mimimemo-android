@@ -20,8 +20,21 @@ class TodoWidget : AppWidgetProvider() {
         render(context, manager, ids)
     }
 
+    /** 行の丸を押したら完了にする（#105）。描き直しは TodoDbHelper の書き込みで行われる */
+    override fun onReceive(context: Context, intent: Intent) {
+        if (intent.action == ACTION_DONE) {
+            val id = intent.getLongExtra(EXTRA_TODO_ID, 0)
+            if (id > 0) runCatching { TodoDbHelper(context).use { it.setDone(id, true) } }
+            return
+        }
+        super.onReceive(context, intent)
+    }
+
     companion object {
         private const val ROWS = 3
+        private const val ACTION_DONE = "jp.mimimemo.action.WIDGET_DONE"
+        private const val EXTRA_TODO_ID = "jp.mimimemo.extra.TODO_ID"
+        private const val REQUEST_DONE_BASE = 10
         private const val REQUEST_OPEN_LIST = 2
         private const val REQUEST_MIC = 1
 
@@ -40,6 +53,7 @@ class TodoWidget : AppWidgetProvider() {
                 Triple(R.id.row1, R.id.title1, R.id.due1),
                 Triple(R.id.row2, R.id.title2, R.id.due2),
             )
+            val checks = listOf(R.id.check0, R.id.check1, R.id.check2)
             val today = LocalDate.now()
             rows.forEachIndexed { i, (row, title, due) ->
                 val todo = todos.getOrNull(i)
@@ -47,6 +61,15 @@ class TodoWidget : AppWidgetProvider() {
                 if (todo != null) {
                     views.setTextViewText(title, todo.title)
                     views.setTextViewText(due, todo.due?.let { dueLabel(context, it, today) } ?: "")
+                    // 行ごとに番号を分け、押した行の ToDo だけを完了にする
+                    views.setOnClickPendingIntent(
+                        checks[i],
+                        PendingIntent.getBroadcast(
+                            context, REQUEST_DONE_BASE + i,
+                            Intent(context, TodoWidget::class.java).setAction(ACTION_DONE).putExtra(EXTRA_TODO_ID, todo.id),
+                            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+                        ),
+                    )
                 }
             }
             views.setViewVisibility(R.id.widgetEmpty, if (todos.isEmpty()) View.VISIBLE else View.GONE)

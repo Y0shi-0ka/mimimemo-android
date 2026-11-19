@@ -93,8 +93,6 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refresh()
-        // ウィジェットを置いたら「ホーム画面に置く」を消す
-        invalidateOptionsMenu()
         remindOncePerDay()
         // 朝の期限のお知らせを予約しておく（同じものは1つにまとまる、#100）
         MorningReminder.schedule(this)
@@ -114,11 +112,9 @@ class MainActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menu.add(Menu.NONE, MENU_SUMMARY, Menu.NONE, R.string.menu_summary)
         menu.add(Menu.NONE, MENU_SETTINGS, Menu.NONE, R.string.menu_settings)
-        // ホーム画面に置けて、まだ置いていないときだけ出す（#97）
-        val widgets = getSystemService(AppWidgetManager::class.java)
-        if (widgets?.isRequestPinAppWidgetSupported == true &&
-            widgets.getAppWidgetIds(ComponentName(this, TodoWidget::class.java)).isEmpty()
-        ) {
+        // ホーム画面に置けるときに出す（#97）。置いたかどうかでは消さない
+        // （ランチャー側で消えても登録が残ることがあり、そのとき置き直せなくなるため、#105）
+        if (getSystemService(AppWidgetManager::class.java)?.isRequestPinAppWidgetSupported == true) {
             menu.add(Menu.NONE, MENU_WIDGET, Menu.NONE, R.string.menu_widget)
         }
         return true

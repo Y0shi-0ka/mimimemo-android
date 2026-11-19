@@ -67,6 +67,7 @@
     <string name="tags_description">科目名などを足すと、文中にその名前があればそのタグを付けます</string>
     <string name="tag_hint">例：データベース</string>
     <string name="reminder_channel">期限のお知らせ</string>
+    <string name="widget_done">完了にする</string>
     <string name="widget_more">ほか%1$d件</string>
     <string name="widget_overdue">期限切れ</string>
     <string name="widget_today">今日</string>
