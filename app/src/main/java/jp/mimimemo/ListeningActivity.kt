@@ -15,7 +15,6 @@ import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.view.LayoutInflater
-import android.widget.ArrayAdapter
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -337,20 +336,12 @@ class ListeningActivity : AppCompatActivity() {
     private fun showCandidateDialog(candidate: Todo) {
         val b = DialogCandidateBinding.inflate(LayoutInflater.from(this))
         var due = candidate.due
+        var tag = candidate.tag
 
         b.editTitle.setText(candidate.title)
-        fun renderDue() {
-            b.buttonDue.text = due?.let { DueFormatter.short(it) } ?: getString(R.string.due_none)
-        }
-        renderDue()
-        b.buttonDue.setOnClickListener {
-            showDuePicker(this, due) {
-                due = it
-                renderDue()
-            }
-        }
-        b.spinnerTag.adapter = ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, Todo.TAGS)
-        b.spinnerTag.setSelection(Todo.TAGS.indexOf(candidate.tag).coerceAtLeast(0))
+        // 期限・タグは札を1タップで選ぶ（#47）
+        ChoiceChips.bindDue(b.chipsDue, due) { due = it }
+        ChoiceChips.bindTag(b.chipsTag, Todo.TAGS, tag) { tag = it }
         b.textSource.text = getString(R.string.source_quote, candidate.sourceText.orEmpty())
 
         MaterialAlertDialogBuilder(this)
@@ -358,7 +349,7 @@ class ListeningActivity : AppCompatActivity() {
             .setView(b.root)
             .setPositiveButton(R.string.candidate_add) { _, _ ->
                 val title = b.editTitle.text?.toString()?.trim().orEmpty().ifEmpty { candidate.title }
-                acceptCandidate(candidate, candidate.copy(title = title, due = due, tag = b.spinnerTag.selectedItem as String))
+                acceptCandidate(candidate, candidate.copy(title = title, due = due, tag = tag))
             }
             .setNegativeButton(R.string.candidate_reject) { _, _ -> rejectCandidate(candidate) }
             .show()
