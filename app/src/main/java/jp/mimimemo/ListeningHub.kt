@@ -21,6 +21,8 @@ object ListeningHub {
         data object Starting : Status
         /** hearing：声を聞き取っている最中 */
         data class Listening(val hearing: Boolean) : Status
+        /** 電池が少ないので一時停止中。充電・回復で自動で再開する（#64） */
+        data object PausedLowBattery : Status
         data object ModelDownloading : Status
         data object ModelRequired : Status
         data object Unavailable : Status

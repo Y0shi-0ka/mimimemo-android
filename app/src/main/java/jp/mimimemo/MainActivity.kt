@@ -76,6 +76,7 @@ class MainActivity : AppCompatActivity() {
         binding.listeningPill.isVisible = running || count > 0
         binding.listeningDot.isVisible = running
         binding.listeningText.text = when {
+            ListeningHub.status.value == ListeningHub.Status.PausedLowBattery -> getString(R.string.status_paused_battery)
             count > 0 && running -> getString(R.string.listening_with_candidates, count)
             count > 0 -> getString(R.string.candidates_waiting, count)
             else -> getString(R.string.status_listening)

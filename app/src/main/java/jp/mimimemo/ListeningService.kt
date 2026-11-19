@@ -6,11 +6,14 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
@@ -34,6 +37,7 @@ import java.time.LocalDateTime
  * - 動いている間は通知を出し続ける（バックグラウンドでマイクを使うための OS の決まり。動作中であることも示す）。
  *   通知から止められる
  * - 音声・文字起こしは保存しない。DB に書くのは、画面で候補を追加したときだけ
+ * - 電池が少なくなったら（充電中でなければ）一時停止し、充電・回復で再開する（#64）
  */
 class ListeningService : Service(), SpeechController.ResultListener {
 
@@ -47,6 +51,19 @@ class ListeningService : Service(), SpeechController.ResultListener {
     private val handler = Handler(Looper.getMainLooper())
     private val flushBatch = Runnable { flush() }
     private var started = false
+
+    /** 電池が少ないので一時停止中（#64） */
+    private var paused = false
+
+    private val batteryReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+            when (intent.action) {
+                Intent.ACTION_BATTERY_LOW -> if (!isCharging()) pauseForBattery()
+                Intent.ACTION_BATTERY_OKAY, Intent.ACTION_POWER_CONNECTED -> resume()
+            }
+        }
+    }
+    private var batteryReceiverRegistered = false
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -71,6 +88,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
             }
             ACTION_FLUSH -> flush()
             ACTION_DOWNLOAD_MODEL -> speech.requestModelDownload()
+            ACTION_RESUME -> resume()
             else -> startListening()
         }
         // デバッグ版だけ：adb から渡した文を、聞き取った文と同じ流れで扱う（実機で確かめるため）
@@ -81,6 +99,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
     }
 
     override fun onDestroy() {
+        if (batteryReceiverRegistered) unregisterReceiver(batteryReceiver)
         handler.removeCallbacksAndMessages(null)
         speech.stop()
         scope.cancel()
@@ -108,6 +127,50 @@ class ListeningService : Service(), SpeechController.ResultListener {
             return
         }
         started = true
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_BATTERY_LOW)
+            addAction(Intent.ACTION_BATTERY_OKAY)
+            addAction(Intent.ACTION_POWER_CONNECTED)
+        }
+        ContextCompat.registerReceiver(this, batteryReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        batteryReceiverRegistered = true
+        // 始めた時点ですでに少なく、充電もしていなければ、一時停止の状態で始める
+        if (isBatteryLow() && !isCharging()) {
+            paused = true
+            ListeningHub.setStatus(ListeningHub.Status.PausedLowBattery)
+            updateNotification()
+        } else {
+            speech.start()
+        }
+    }
+
+    // ---- 電池が少ないときの一時停止（#64） ----
+
+    private fun batteryManager() = getSystemService(BatteryManager::class.java)
+
+    private fun isCharging(): Boolean = batteryManager()?.isCharging == true
+
+    private fun isBatteryLow(): Boolean =
+        (batteryManager()?.getIntProperty(BatteryManager.BATTERY_PROPERTY_CAPACITY) ?: 100) <= LOW_BATTERY_PERCENT
+
+    /** 話している途中の文を受け取り、ためた分をまとめてから一時停止する */
+    private fun pauseForBattery() {
+        if (!started || paused) return
+        paused = true
+        Log.d(TAG, "pause: low battery")
+        speech.finish {
+            flush {
+                ListeningHub.setPartial("")
+                ListeningHub.setStatus(ListeningHub.Status.PausedLowBattery)
+                updateNotification()
+            }
+        }
+    }
+
+    private fun resume() {
+        if (!started || !paused) return
+        paused = false
+        Log.d(TAG, "resume")
         speech.start()
     }
 
@@ -231,7 +294,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
         val count = ListeningHub.candidates.value.size
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_mic)
-            .setContentTitle(getString(R.string.status_listening))
+            .setContentTitle(getString(if (paused) R.string.status_paused_battery else R.string.status_listening))
             .setContentText(if (count > 0) getString(R.string.notification_candidates, count) else null)
             .setContentIntent(open)
             .addAction(R.drawable.ic_stop, getString(R.string.action_stop), stop)
@@ -258,6 +321,10 @@ class ListeningService : Service(), SpeechController.ResultListener {
         private const val ACTION_STOP = "jp.mimimemo.action.STOP"
         private const val ACTION_FLUSH = "jp.mimimemo.action.FLUSH"
         private const val ACTION_DOWNLOAD_MODEL = "jp.mimimemo.action.DOWNLOAD_MODEL"
+        private const val ACTION_RESUME = "jp.mimimemo.action.RESUME"
+
+        /** この残量（%）以下で充電していなければ、始めるときに一時停止にする */
+        private const val LOW_BATTERY_PERCENT = 15
 
         /** デバッグ版だけで読む。聞き取った文の代わりに扱う文の配列 */
         const val EXTRA_DEBUG_SENTENCES = "jp.mimimemo.debug.SENTENCES"
@@ -275,6 +342,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
         fun stop(context: Context) = send(context, ACTION_STOP)
         fun flush(context: Context) = send(context, ACTION_FLUSH)
         fun requestModelDownload(context: Context) = send(context, ACTION_DOWNLOAD_MODEL)
+        fun resume(context: Context) = send(context, ACTION_RESUME)
 
         private fun send(context: Context, action: String) {
             if (!ListeningHub.isRunning) return
