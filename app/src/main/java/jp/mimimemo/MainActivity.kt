@@ -27,6 +27,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        ListeningHub.attach(this)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 

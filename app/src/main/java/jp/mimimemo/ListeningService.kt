@@ -52,6 +52,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
 
     override fun onCreate() {
         super.onCreate()
+        ListeningHub.attach(this)
         val keywords = KeywordStore(this)
         extractor = TodoExtractor(keywords = keywords::load, ai = UnavailableLocalAiClient)
         speech = SpeechController(

@@ -106,4 +106,17 @@ class RecognizedSpeechTest {
         assertEquals("発表なので準備をしておく", todo("来週月曜が発表なので準備をしておいて").title)
         assertEquals("スライドを作る", todo("金曜にスライドを作っといて").title)
     }
+
+    @Test
+    fun deduperForgetsOldest() {
+        val seen = CandidateDeduper(limit = 2)
+        val a = Todo(title = "a")
+        val b = Todo(title = "b")
+        val c = Todo(title = "c")
+        assertTrue(seen.isNew(a))
+        assertTrue(seen.isNew(b))
+        assertTrue(seen.isNew(c)) // a を忘れる
+        assertFalse(seen.isNew(c))
+        assertTrue(seen.isNew(a))
+    }
 }
