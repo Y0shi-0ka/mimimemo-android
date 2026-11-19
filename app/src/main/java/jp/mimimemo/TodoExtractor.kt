@@ -21,6 +21,9 @@ class TodoExtractor(
     suspend fun extract(sentence: String): Todo? {
         val text = sentence.trim()
         if (!isCandidate(text)) return null
+        // 「来週月曜が提出の日です」のように期限を伝えるだけの文は候補にしない（issue #39）。
+        // その期限は、5分まとめで前後の文に補う手がかりとして使われる
+        if (isDateNotice(text)) return null
 
         if (ai.isAvailable()) {
             val result = try {
@@ -41,6 +44,21 @@ class TodoExtractor(
             )
         }
         return extractByRule(text)
+    }
+
+    /**
+     * 期限を伝えるだけの文か。日付を取り除くと「提出日」「締め切り」などしか残らない文をそうみなす。
+     * 「レポートの締め切りは金曜」のように、やることが残る文は含めない。
+     */
+    internal fun isDateNotice(sentence: String): Boolean {
+        val match = parser.find(sentence, today()) ?: return false
+        var core = match.text.removeRange(match.range).replace(NOTICE_NOISE, "")
+        var prev: String
+        do {
+            prev = core
+            core = core.replace(NOTICE_COPULA, "").trim(*NOTICE_PARTICLES)
+        } while (core != prev)
+        return core.replace("の日", "日") in NOTICE_WORDS
     }
 
     internal fun isCandidate(sentence: String): Boolean {
@@ -75,6 +93,8 @@ class TodoExtractor(
             val rest = s.substring(dateRange.last + 1)
             val tail = AFTER_DATE.find(rest)?.value?.length ?: 0
             s = s.removeRange(dateRange.first, dateRange.last + 1 + tail)
+            // 文頭の日付を取り除いたとき、続く助詞を残さない（「来週月曜が〜」→「〜」、issue #39）
+            if (dateRange.first == 0) s = s.replace(LEADING_PARTICLE, "")
         }
         s = s.trim().replace(LEADING_FILLER, "").trimStart(*SEPARATORS)
 
@@ -115,6 +135,14 @@ class TodoExtractor(
 
         private val SEPARATORS = charArrayOf('、', ',', ' ', '　')
         private val TRAILING_PUNCT = charArrayOf('。', '．', '.', '!', '！', '?', '？', '、', ',', ' ', '　', '〜')
+
+        private val LEADING_PARTICLE = Regex("^[がはをでも](?=.)")
+
+        /** 期限を伝えるだけの文で、日付のほかに残ってよい言葉 */
+        private val NOTICE_WORDS = setOf("提出", "提出日", "締め切り", "締め切り日", "締切", "締切日", "期限", "期日")
+        private val NOTICE_NOISE = Regex("[、。，．,.!！?？\\s　]")
+        private val NOTICE_COPULA = Regex("(?:です|でした|だ|になります|になってます|ね|よ|って)$")
+        private val NOTICE_PARTICLES = charArrayOf('が', 'は', 'の', 'も')
 
         private val AFTER_DATE = Regex("^(?:までに|まで|中に|には|に|の|は)[、,\\s　]*")
 
