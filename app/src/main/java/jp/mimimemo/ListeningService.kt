@@ -366,6 +366,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
         if (accept) {
             runCatching {
                 TodoDbHelper(this).use { it.insert(candidate.copy(id = 0, createdAt = java.time.LocalDateTime.now())) }
+                ListeningHub.dropSameAs(candidate)
             }.onFailure {
                 // 保存できなければ候補に戻す
                 ListeningHub.restoreCandidate(candidate, 0)
