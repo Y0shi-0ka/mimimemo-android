@@ -4,6 +4,7 @@ import android.Manifest
 import android.animation.ObjectAnimator
 import android.animation.ValueAnimator
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
 import android.net.Uri
@@ -24,7 +25,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
-import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import jp.mimimemo.databinding.ActivityListeningBinding
@@ -35,7 +35,7 @@ import java.time.LocalDateTime
 /**
  * ② 聞き取り画面。
  * この画面を表示している間だけ聞き取り、離れると止める（onPause）。
- * ToDo の候補は聞き取りを止めずにカードで並べ、右スワイプで追加・左スワイプで却下する。
+ * ToDo の候補は聞き取りを止めずにカードで1枚ずつ出し、右へ払うと追加・左へ払うと追加しない（issue #33）。
  * カードをタップすると ③ 確認ダイアログで詳細を直してから追加できる（issue #12）。
  *
  * 聞き取り中は画面を点けたままにするので、電池を使いすぎないようにしている（issue #21）：
@@ -51,14 +51,13 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     private data class Line(val text: String, val candidate: Boolean)
 
     private val lines = ArrayDeque<Line>()
-    /** 確認待ちの候補（新しいものが先頭）。DB にはまだ入っていないので id は負の仮番号 */
+    /** 確認待ちの候補（先頭がいま見せているカード。新しいものは後ろに足す）。DB にはまだ入っていないので id は負の仮番号 */
     private val candidates = mutableListOf<Todo>()
     private var nextTempId = -1L
 
     /** 一度でも声を文字にしたか。したら説明文はもう出さない（issue #31） */
     private var heardAnything = false
     private val deduper = CandidateDeduper()
-    private lateinit var candidateAdapter: TodoAdapter
     private var permissionRequested = false
     private var pulse: ObjectAnimator? = null
 
@@ -84,22 +83,20 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         extractor = TodoExtractor(keywords = keywords::load, ai = UnavailableLocalAiClient)
         speech = SpeechController(this, this, vocabulary = { TodoExtractor.vocabulary(keywords.load()) })
 
-        candidateAdapter = TodoAdapter(onClick = ::showCandidateDialog)
-        binding.listCandidates.layoutManager = LinearLayoutManager(this)
-        binding.listCandidates.adapter = candidateAdapter
-        SwipeActions.attach(
-            binding.listCandidates,
-            left = SwipeAction(R.string.swipe_reject, R.drawable.ic_close, getColor(R.color.swipe_neutral)) {
-                rejectCandidate(candidateAdapter.currentList[it])
-            },
-            right = SwipeAction(R.string.swipe_add, R.drawable.ic_check, getColor(R.color.swipe_positive)) {
-                acceptCandidate(candidateAdapter.currentList[it])
-            },
-        )
+        binding.candidateStack.onAccept = { acceptCandidate(it) }
+        binding.candidateStack.onReject = { rejectCandidate(it) }
+        binding.candidateStack.onTap = ::showCandidateDialog
+        binding.buttonAdd.setOnClickListener { binding.candidateStack.swipe(accept = true) }
+        binding.buttonSkip.setOnClickListener { binding.candidateStack.swipe(accept = false) }
 
         binding.buttonStop.setOnClickListener { finish() }
         binding.buttonSend.setOnClickListener { sendManual() }
         binding.editManual.onSubmit { sendManual() }
+
+        // デバッグ版だけ：adb から渡した文を、聞き取った文と同じ流れで扱う（実機で候補カードを確かめるため）
+        if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
+            intent.getStringArrayExtra(EXTRA_DEBUG_SENTENCES)?.forEach(::handleSentence)
+        }
     }
 
     override fun onResume() {
@@ -209,15 +206,15 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
             // 言い直し・聞き返しで同じ内容がまた来たら、候補は増やさない
             val todo = extractor.extract(text)?.takeIf { deduper.isNew(it) }
             addLine(Line(text, todo != null))
-            if (todo != null) addCandidate(todo.copy(id = nextTempId--))
+            // 新しい候補は束の後ろに足す。触っている最中のカードは入れ替えない
+            if (todo != null) addCandidate(todo.copy(id = nextTempId--), candidates.size)
         }
     }
 
     private fun addCandidate(candidate: Todo, index: Int = 0) {
         candidates.add(index.coerceIn(0, candidates.size), candidate)
         wakeScreen()
-        // 差分の反映は非同期なので、反映が終わってから先頭（いちばん新しい候補）を見せる
-        renderCandidates { binding.listCandidates.scrollToPosition(0) }
+        renderCandidates()
     }
 
     /** 候補を追加する。edited は詳細ダイアログで直した内容 */
@@ -244,9 +241,9 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         return index
     }
 
-    private fun renderCandidates(onCommitted: () -> Unit = {}) {
-        candidateAdapter.submitList(candidates.toList(), onCommitted)
-        binding.listCandidates.isVisible = candidates.isNotEmpty()
+    private fun renderCandidates() {
+        binding.candidateStack.submit(candidates.toList())
+        binding.candidateArea.isVisible = candidates.isNotEmpty()
     }
 
     private fun showUndo(message: String, undo: () -> Unit) {
@@ -426,6 +423,9 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
 
     private companion object {
         const val MAX_LINES = 30
+
+        /** デバッグ版だけで読む。聞き取った文の代わりに扱う文の配列 */
+        const val EXTRA_DEBUG_SENTENCES = "jp.mimimemo.debug.SENTENCES"
 
         /** 触れずにこの時間が経ったら画面を暗くする */
         const val DIM_AFTER_MS = 20_000L
