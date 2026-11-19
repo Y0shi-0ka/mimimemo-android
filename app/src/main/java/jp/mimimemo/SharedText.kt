@@ -21,14 +21,14 @@ object SharedText {
         if (trimmed.isEmpty()) return emptyList()
         val heard = RecognizedText.splitSentences(trimmed).map { SentenceBatch.Heard(it, now.toLocalDate(), now) }
         val found = SentenceBatch.continueFromPrevious(heard, heard.map { extractor.extract(it.text, it.on) })
-        val filled = SentenceBatch.fillDueFromContext(heard, found) { parser.parse(it.text, it.on) }
+        val filled = SentenceBatch.fillDueFromContext(heard, found) { parser.parse(extractor.withoutRepeat(it.text), it.on) }
         val todos = filled.filterNotNull().map { it.copy(createdAt = now) }
         if (todos.isNotEmpty()) return todos
         val oneLine = trimmed.replace(Regex("\\s+"), " ")
         return listOf(
             Todo(
                 title = if (oneLine.length > MAX_TITLE) oneLine.take(MAX_TITLE) + "…" else oneLine,
-                due = parser.parse(oneLine, now.toLocalDate()),
+                due = parser.parse(extractor.withoutRepeat(oneLine), now.toLocalDate()),
                 tag = extractor.guessTag(oneLine),
                 sourceText = oneLine,
                 createdAt = now,

@@ -270,7 +270,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
             ListeningHub.setAnalyzing(true)
             // 「あと卵もね」のような直前の候補の続きも候補にする（#80）
             val found = context.map { null } + SentenceBatch.continueFromPrevious(sentences, findCandidates(sentences))
-            val filled = SentenceBatch.fillDueFromContext(context + sentences, found) { parser.parse(it.text, it.on) }
+            val filled = SentenceBatch.fillDueFromContext(context + sentences, found) { parser.parse(extractor.withoutRepeat(it.text), it.on) }
                 .drop(context.size)
             val marked = mutableSetOf<Long>()
             // すでに一覧にある ToDo と同じ候補は出さない（#72）
@@ -304,7 +304,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
             val task = byAi[i] ?: return@mapIndexed rule
             Todo(
                 title = task.title,
-                due = task.dueText?.let { parser.parse(it, heard.on) } ?: rule?.due ?: parser.parse(heard.text, heard.on),
+                due = task.dueText?.let { parser.parse(it, heard.on) } ?: rule?.due ?: parser.parse(extractor.withoutRepeat(heard.text), heard.on),
                 // 自分で足したタグ（科目名）が文中にあれば、AI のタグより優先する（#10）
                 tag = extractor.customTag(heard.text) ?: task.tag ?: rule?.tag ?: extractor.guessTag(heard.text),
                 sourceText = heard.text,
