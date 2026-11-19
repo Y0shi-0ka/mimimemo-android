@@ -4,6 +4,7 @@ import android.content.res.ColorStateList
 import android.graphics.Paint
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.TextView
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
@@ -15,6 +16,7 @@ import java.time.LocalDate
 /**
  * ToDo をカードで一覧表示する。
  * やることと期限を主にし、期限がない・タグが「その他」のときはその表示ごと出さない（issue #20）。
+ * 一覧では期限の区切りごとに見出しを入れる（issue #49）。
  * @param onDoneChanged null のときはチェックボックスを出さない
  * @param showSource 元の発言も出す（今日のまとめ用）
  */
@@ -22,20 +24,60 @@ class TodoAdapter(
     private val onClick: (Todo) -> Unit,
     private val onDoneChanged: ((Todo, Boolean) -> Unit)? = null,
     private val showSource: Boolean = false,
-) : ListAdapter<Todo, TodoAdapter.ViewHolder>(DIFF) {
+) : ListAdapter<TodoAdapter.Row, RecyclerView.ViewHolder>(DIFF) {
 
-    class ViewHolder(val binding: ItemTodoBinding) : RecyclerView.ViewHolder(binding.root)
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val b = ItemTodoBinding.inflate(LayoutInflater.from(parent.context), parent, false)
-        // 丸いチェックの色は描画リソース側で持つので、テーマの色付けを外す（issue #35）
-        b.checkDone.buttonTintList = null
-        return ViewHolder(b)
+    sealed interface Row {
+        data class Header(val section: DueSections.Section, val count: Int) : Row
+        data class Item(val todo: Todo) : Row
     }
 
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val todo = getItem(position)
-        val b = holder.binding
+    class ItemHolder(val binding: ItemTodoBinding) : RecyclerView.ViewHolder(binding.root)
+    class HeaderHolder(val text: TextView) : RecyclerView.ViewHolder(text)
+
+    /** 区切らずに並べる（今日のまとめ） */
+    fun submitTodos(todos: List<Todo>) = submitList(todos.map { Row.Item(it) })
+
+    /** 期限の区切りごとに見出しを入れて並べる（一覧） */
+    fun submitGrouped(todos: List<Todo>, today: LocalDate = LocalDate.now()) =
+        submitList(
+            DueSections.group(todos, today).flatMap { (section, items) ->
+                listOf(Row.Header(section, items.size)) + items.map { Row.Item(it) }
+            }
+        )
+
+    /** その位置の ToDo。見出しなら null */
+    fun todoAt(position: Int): Todo? = (currentList.getOrNull(position) as? Row.Item)?.todo
+
+    override fun getItemViewType(position: Int): Int = if (getItem(position) is Row.Header) TYPE_HEADER else TYPE_ITEM
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
+        if (viewType == TYPE_HEADER) {
+            return HeaderHolder(inflater.inflate(R.layout.item_section_header, parent, false) as TextView)
+        }
+        val b = ItemTodoBinding.inflate(inflater, parent, false)
+        // 丸いチェックの色は描画リソース側で持つので、テーマの色付けを外す（issue #35）
+        b.checkDone.buttonTintList = null
+        return ItemHolder(b)
+    }
+
+    override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
+        when (val row = getItem(position)) {
+            is Row.Header -> (holder as HeaderHolder).text.apply {
+                text = context.getString(R.string.section_header, row.section.label, row.count)
+                // 期限切れの見出しだけ急ぎの色にする
+                setTextColor(
+                    ContextCompat.getColor(
+                        context,
+                        if (row.section == DueSections.Section.OVERDUE) R.color.due_urgent_fg else R.color.on_surface_variant,
+                    )
+                )
+            }
+            is Row.Item -> bindItem((holder as ItemHolder).binding, row.todo)
+        }
+    }
+
+    private fun bindItem(b: ItemTodoBinding, todo: Todo) {
         val today = LocalDate.now()
 
         b.textTitle.text = todo.title
@@ -66,6 +108,9 @@ class TodoAdapter(
     }
 
     private companion object {
+        const val TYPE_HEADER = 0
+        const val TYPE_ITEM = 1
+
         /** 過ぎた・今日・明日は赤、3日以内は橙、それ以外は灰 */
         fun dueColors(todo: Todo, today: LocalDate): Pair<Int, Int> {
             val due = todo.due ?: return R.color.due_normal_bg to R.color.due_normal_fg
@@ -77,9 +122,13 @@ class TodoAdapter(
             }
         }
 
-        val DIFF = object : DiffUtil.ItemCallback<Todo>() {
-            override fun areItemsTheSame(oldItem: Todo, newItem: Todo) = oldItem.id == newItem.id
-            override fun areContentsTheSame(oldItem: Todo, newItem: Todo) = oldItem == newItem
+        val DIFF = object : DiffUtil.ItemCallback<Row>() {
+            override fun areItemsTheSame(oldItem: Row, newItem: Row) = when {
+                oldItem is Row.Header && newItem is Row.Header -> oldItem.section == newItem.section
+                oldItem is Row.Item && newItem is Row.Item -> oldItem.todo.id == newItem.todo.id
+                else -> false
+            }
+            override fun areContentsTheSame(oldItem: Row, newItem: Row) = oldItem == newItem
         }
     }
 }

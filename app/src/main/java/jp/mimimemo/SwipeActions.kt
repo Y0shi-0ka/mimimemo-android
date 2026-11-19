@@ -27,7 +27,13 @@ class SwipeAction(
  */
 object SwipeActions {
 
-    fun attach(recyclerView: RecyclerView, left: SwipeAction?, right: SwipeAction?): ItemTouchHelper {
+    fun attach(
+        recyclerView: RecyclerView,
+        left: SwipeAction?,
+        right: SwipeAction?,
+        /** false を返した行はスワイプしない（見出しなど） */
+        canSwipe: (RecyclerView.ViewHolder) -> Boolean = { true },
+    ): ItemTouchHelper {
         val directions = (if (left != null) ItemTouchHelper.LEFT else 0) or
             (if (right != null) ItemTouchHelper.RIGHT else 0)
 
@@ -39,6 +45,9 @@ object SwipeActions {
                 isFakeBoldText = true
             }
             private val rect = RectF()
+
+            override fun getSwipeDirs(rv: RecyclerView, viewHolder: RecyclerView.ViewHolder): Int =
+                if (canSwipe(viewHolder)) super.getSwipeDirs(rv, viewHolder) else 0
 
             override fun onMove(
                 rv: RecyclerView,
@@ -76,7 +85,7 @@ object SwipeActions {
             private fun drawBackground(c: Canvas, holder: RecyclerView.ViewHolder, dX: Float, action: SwipeAction) {
                 val item = holder.itemView
                 val ctx = item.context
-                val radius = dp(item, 16f)
+                val radius = dp(item, 20f)
                 val margin = dp(item, 20f)
 
                 bgPaint.color = action.color

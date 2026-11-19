@@ -50,7 +50,7 @@ class SummaryActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         todos = db.findCreatedOn(LocalDate.now())
-        adapter.submitList(todos)
+        adapter.submitTodos(todos)
         binding.emptyView.isVisible = todos.isEmpty()
     }
 
