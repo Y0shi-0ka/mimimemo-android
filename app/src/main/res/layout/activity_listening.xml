@@ -5,31 +5,38 @@
     android:layout_height="match_parent"
     android:orientation="vertical">
 
-    <!-- 動作中であることを常に表示する（プライバシー方針①）。高さは聞き取り中に変わらない -->
+    <!-- 動作中であることを常に表示する（プライバシー方針①）。丸い札に点と状態（issue #35） -->
     <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
+        android:id="@+id/statusPill"
+        android:layout_width="wrap_content"
+        android:layout_height="40dp"
+        android:layout_marginStart="20dp"
+        android:layout_marginTop="4dp"
+        android:layout_marginBottom="12dp"
+        android:background="@drawable/bg_pill"
+        android:backgroundTint="@color/card"
         android:gravity="center_vertical"
-        android:minHeight="64dp"
         android:orientation="horizontal"
-        android:paddingHorizontal="24dp">
+        android:paddingStart="16dp"
+        android:paddingEnd="18dp">
 
         <View
             android:id="@+id/statusDot"
-            android:layout_width="14dp"
-            android:layout_height="14dp"
+            android:layout_width="10dp"
+            android:layout_height="10dp"
             android:background="@drawable/bg_dot"
             android:backgroundTint="@color/idle" />
 
         <TextView
             android:id="@+id/textStatus"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="12dp"
-            android:layout_weight="1"
+            android:layout_marginStart="10dp"
             android:maxLines="1"
             android:text="@string/status_starting"
-            android:textAppearance="?attr/textAppearanceTitleLarge" />
+            android:textAppearance="?attr/textAppearanceTitleSmall"
+            android:textColor="?attr/colorOnSurface"
+            android:textStyle="bold" />
     </LinearLayout>
 
     <!-- 聞き取れないとき（モデルがない・許可がない・使えない端末）だけ、理由とできる操作を出す -->
@@ -42,7 +49,7 @@
         android:layout_marginBottom="8dp"
         android:visibility="gone"
         app:cardBackgroundColor="?attr/colorPrimaryContainer"
-        app:cardCornerRadius="20dp">
+        app:cardCornerRadius="24dp">
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -79,7 +86,7 @@
         <jp.mimimemo.CandidateStackView
             android:id="@+id/candidateStack"
             android:layout_width="match_parent"
-            android:layout_height="220dp"
+            android:layout_height="230dp"
             android:layout_marginHorizontal="20dp"
             android:layout_marginTop="4dp"
             android:layout_marginBottom="20dp" />
@@ -87,45 +94,39 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:clipChildren="false"
+            android:clipToPadding="false"
             android:gravity="center"
             android:orientation="horizontal"
-            android:paddingBottom="12dp">
+            android:paddingTop="2dp"
+            android:paddingBottom="20dp">
 
-            <com.google.android.material.button.MaterialButton
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
                 android:id="@+id/buttonSkip"
-                style="@style/Widget.Material3.Button.OutlinedButton.Icon"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:layout_marginEnd="48dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="40dp"
                 android:contentDescription="@string/candidate_reject"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:padding="0dp"
-                app:cornerRadius="32dp"
-                app:icon="@drawable/ic_close"
-                app:iconGravity="textStart"
-                app:iconPadding="0dp"
-                app:iconSize="30dp"
-                app:iconTint="@color/swipe_neutral"
-                app:strokeColor="@color/swipe_neutral"
-                app:strokeWidth="2dp" />
+                android:src="@drawable/ic_close"
+                app:backgroundTint="@color/card"
+                app:elevation="4dp"
+                app:fabCustomSize="68dp"
+                app:maxImageSize="30dp"
+                app:shapeAppearanceOverlay="@style/MimiMemo.Circle"
+                app:tint="@color/swipe_neutral" />
 
-            <com.google.android.material.button.MaterialButton
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
                 android:id="@+id/buttonAdd"
-                style="@style/Widget.Material3.Button.Icon"
-                android:layout_width="64dp"
-                android:layout_height="64dp"
-                android:backgroundTint="@color/swipe_positive"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:contentDescription="@string/swipe_add"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
-                android:padding="0dp"
-                app:cornerRadius="32dp"
-                app:icon="@drawable/ic_check"
-                app:iconGravity="textStart"
-                app:iconPadding="0dp"
-                app:iconSize="30dp"
-                app:iconTint="@android:color/white" />
+                android:src="@drawable/ic_check"
+                app:backgroundTint="@color/swipe_positive"
+                app:elevation="4dp"
+                app:fabCustomSize="68dp"
+                app:maxImageSize="32dp"
+                app:shapeAppearanceOverlay="@style/MimiMemo.Circle"
+                app:tint="@android:color/white" />
         </LinearLayout>
     </LinearLayout>
 
@@ -191,15 +192,29 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:contentDescription="@string/action_send"
-            app:icon="@drawable/ic_send" />
+            android:padding="0dp"
+            app:icon="@drawable/ic_send"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp" />
     </LinearLayout>
 
+    <!-- 主役は候補カードなので、停止は控えめな色にする（issue #35） -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/buttonStop"
+        style="@style/Widget.Material3.Button.TonalButton.Icon"
         android:layout_width="match_parent"
-        android:layout_height="64dp"
-        android:layout_margin="16dp"
+        android:layout_height="56dp"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp"
+        android:insetTop="0dp"
+        android:insetBottom="0dp"
         android:text="@string/action_stop"
         android:textAppearance="?attr/textAppearanceTitleMedium"
-        app:icon="@drawable/ic_stop" />
+        android:textColor="?attr/colorOnSurface"
+        app:backgroundTint="@color/surface_container"
+        app:cornerRadius="28dp"
+        app:icon="@drawable/ic_stop"
+        app:iconGravity="textStart"
+        app:iconTint="?attr/colorOnSurface" />
 </LinearLayout>

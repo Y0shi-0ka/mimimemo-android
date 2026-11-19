@@ -18,7 +18,8 @@
     <string name="action_listen">聞き取る</string>
     <string name="action_add">ToDoを追加</string>
     <string name="empty_list">ToDoはありません</string>
-    <string name="reminder_banner">明日が期限のToDoが %1$d 件あります</string>
+    <string name="empty_list_sub">マイクを押すと、会話から見つけます</string>
+    <string name="reminder_banner">明日が期限のToDoが%1$d件あります</string>
     <string name="action_speak">読み上げ</string>
     <string name="done_message">「%1$s」を完了にしました</string>
     <string name="undo">元に戻す</string>
@@ -39,7 +40,7 @@
     <string name="status_listening">聞き取り中</string>
     <string name="status_stopped">停止中</string>
     <string name="status_manual_only">手入力のみ</string>
-    <string name="transcript_hint">会話を端末の中だけで文字にします。音声は保存しません。\n\nToDoが見つかるとカードが出ます。\n右へスワイプで追加、左で却下。</string>
+    <string name="transcript_hint">会話を端末の中だけで文字にします。音声は保存しません。\n\nToDoが見つかるとカードが出ます。\n右へ払うと追加、左へ払うと追加しません。</string>
     <string name="action_stop">停止</string>
     <string name="stopped_for_silence">しばらく声がなかったので、聞き取りを止めました。</string>
     <string name="action_resume">再開する</string>

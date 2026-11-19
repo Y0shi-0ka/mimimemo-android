@@ -1,13 +1,14 @@
 package jp.mimimemo
 
+import android.content.res.ColorStateList
 import android.graphics.Paint
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.google.android.material.color.MaterialColors
 import jp.mimimemo.databinding.ItemTodoBinding
 import java.time.LocalDate
 
@@ -25,8 +26,12 @@ class TodoAdapter(
 
     class ViewHolder(val binding: ItemTodoBinding) : RecyclerView.ViewHolder(binding.root)
 
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder =
-        ViewHolder(ItemTodoBinding.inflate(LayoutInflater.from(parent.context), parent, false))
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val b = ItemTodoBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        // 丸いチェックの色は描画リソース側で持つので、テーマの色付けを外す（issue #35）
+        b.checkDone.buttonTintList = null
+        return ViewHolder(b)
+    }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val todo = getItem(position)
@@ -42,14 +47,11 @@ class TodoAdapter(
 
         b.textDue.isVisible = todo.due != null
         b.textDue.text = DueFormatter.format(todo.due, today)
-        val urgent = !todo.done && todo.due != null && !todo.due.isAfter(today.plusDays(1))
-        b.textDue.setTextColor(
-            MaterialColors.getColor(
-                b.textDue,
-                if (urgent) com.google.android.material.R.attr.colorError
-                else com.google.android.material.R.attr.colorOnSurfaceVariant,
-            )
-        )
+        // 急ぎ具合で札の色を変える（issue #35）。完了したものは目立たせない
+        val (bg, fg) = dueColors(todo, today)
+        b.textDue.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(b.root.context, bg))
+        b.textDue.setTextColor(ContextCompat.getColor(b.root.context, fg))
+        b.root.alpha = if (todo.done) 0.55f else 1f
         b.textTag.isVisible = todo.tag != Todo.TAG_OTHER
         b.textTag.text = todo.tag
         b.rowMeta.isVisible = b.textDue.isVisible || b.textTag.isVisible
@@ -64,6 +66,17 @@ class TodoAdapter(
     }
 
     private companion object {
+        /** 過ぎた・今日・明日は赤、3日以内は橙、それ以外は灰 */
+        fun dueColors(todo: Todo, today: LocalDate): Pair<Int, Int> {
+            val due = todo.due ?: return R.color.due_normal_bg to R.color.due_normal_fg
+            return when {
+                todo.done -> R.color.due_normal_bg to R.color.due_normal_fg
+                !due.isAfter(today.plusDays(1)) -> R.color.due_urgent_bg to R.color.due_urgent_fg
+                !due.isAfter(today.plusDays(3)) -> R.color.due_soon_bg to R.color.due_soon_fg
+                else -> R.color.due_normal_bg to R.color.due_normal_fg
+            }
+        }
+
         val DIFF = object : DiffUtil.ItemCallback<Todo>() {
             override fun areItemsTheSame(oldItem: Todo, newItem: Todo) = oldItem.id == newItem.id
             override fun areContentsTheSame(oldItem: Todo, newItem: Todo) = oldItem == newItem
