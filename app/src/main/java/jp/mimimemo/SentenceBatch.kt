@@ -42,6 +42,28 @@ class SentenceBatch {
     }
 
     companion object {
+        /** 「あと卵もね」「関数電卓も」のような、前の ToDo の続き（#80） */
+        private val CONTINUATION = Regex("^(?:あと|それと|それから|あっ?)?[、,\\s　]*([^、。]{1,10}?)も(?:ね|よ|お願い|頼む)?[。！!]?$")
+
+        /** 題名の終わりの動作（「牛乳を買う」→「買う」、「白衣持ってくる」→「持ってくる」） */
+        private val TITLE_VERB = Regex("(?:を)([^を]+)$|([一-龯]?[ぁ-ゖ]+)$")
+
+        /**
+         * 候補でない短い文が「あと卵もね」のような直前の候補の続きなら、同じ動作の候補にする（#80）。
+         * 期限とタグも直前の候補から引き継ぐ。
+         */
+        fun continueFromPrevious(sentences: List<Heard>, todos: List<Todo?>): List<Todo?> {
+            val out = todos.toMutableList()
+            for (i in 1 until sentences.size) {
+                val prev = out[i - 1] ?: continue
+                if (out[i] != null) continue
+                val m = CONTINUATION.matchEntire(sentences[i].text.trim()) ?: continue
+                val verb = TITLE_VERB.find(prev.title)?.let { v -> v.groupValues[1].ifEmpty { v.groupValues[2] } } ?: continue
+                out[i] = prev.copy(title = "${m.groupValues[1]}を$verb", sourceText = sentences[i].text)
+            }
+            return out
+        }
+
         /** 期限を探しにいく前の文の数 */
         const val CONTEXT_SENTENCES = 2
 

@@ -35,7 +35,10 @@ class TodoEvalTest {
             val sentences = case.getJSONArray("sentences").let { a -> (0 until a.length()).map { a.getString(it) } }
             val expected = case.getJSONArray("tasks").let { a -> (0 until a.length()).map { a.getInt(it) }.toSet() }
             val titleHas = case.optJSONObject("title_has")
-            val found = sentences.mapIndexedNotNull { i, s -> extractor.extract(s)?.let { i + 1 to it.title } }
+            // アプリの5分まとめと同じ流れ（文ごとの判定 → 直前の候補の続き）
+            val heard = sentences.map { SentenceBatch.Heard(it, today) }
+            val todos = SentenceBatch.continueFromPrevious(heard, sentences.map { extractor.extract(it) })
+            val found = todos.mapIndexedNotNull { i, t -> t?.let { i + 1 to it.title } }
             val foundIdx = found.map { it.first }.toSet()
             rulesJson.put(case.getString("name"), org.json.JSONArray(foundIdx.sorted()))
             tp += (foundIdx intersect expected).size
@@ -61,8 +64,8 @@ class TodoEvalTest {
     }
 
     private companion object {
-        // 2026-11-20 時点のルールの成績は 適合率 0.79・再現率 0.65。これを下限にする
-        const val MIN_PRECISION = 0.78
-        const val MIN_RECALL = 0.64
+        // 2026-11-20 時点のルールの成績は 適合率 0.96・再現率 0.96（#80 のあと）。下限は少し余裕を持たせる
+        const val MIN_PRECISION = 0.90
+        const val MIN_RECALL = 0.90
     }
 }
