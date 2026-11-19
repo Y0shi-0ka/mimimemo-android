@@ -1,5 +1,7 @@
 package jp.mimimemo
 
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
@@ -91,6 +93,8 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         refresh()
+        // ウィジェットを置いたら「ホーム画面に置く」を消す
+        invalidateOptionsMenu()
         remindOncePerDay()
     }
 
@@ -108,6 +112,13 @@ class MainActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menu.add(Menu.NONE, MENU_SUMMARY, Menu.NONE, R.string.menu_summary)
         menu.add(Menu.NONE, MENU_SETTINGS, Menu.NONE, R.string.menu_settings)
+        // ホーム画面に置けて、まだ置いていないときだけ出す（#97）
+        val widgets = getSystemService(AppWidgetManager::class.java)
+        if (widgets?.isRequestPinAppWidgetSupported == true &&
+            widgets.getAppWidgetIds(ComponentName(this, TodoWidget::class.java)).isEmpty()
+        ) {
+            menu.add(Menu.NONE, MENU_WIDGET, Menu.NONE, R.string.menu_widget)
+        }
         return true
     }
 
@@ -118,6 +129,11 @@ class MainActivity : AppCompatActivity() {
         }
         MENU_SETTINGS -> {
             startActivity(Intent(this, SettingsActivity::class.java))
+            true
+        }
+        MENU_WIDGET -> {
+            getSystemService(AppWidgetManager::class.java)
+                ?.requestPinAppWidget(ComponentName(this, TodoWidget::class.java), null, null)
             true
         }
         else -> super.onOptionsItemSelected(item)
@@ -186,6 +202,7 @@ class MainActivity : AppCompatActivity() {
     private companion object {
         const val MENU_SUMMARY = 1
         const val MENU_SETTINGS = 2
+        const val MENU_WIDGET = 3
         const val PREFS = "main"
         const val KEY_LAST_REMIND = "last_remind_date"
         const val KEY_DONE_EXPANDED = "done_expanded"
