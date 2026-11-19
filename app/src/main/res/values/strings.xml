@@ -30,6 +30,8 @@
     <string name="swipe_delete">削除</string>
     <string name="swipe_add">追加</string>
     <string name="swipe_skip">しない</string>
+    <string name="action_flush">今まとめる</string>
+    <string name="action_close">閉じる</string>
     <string name="mic_permission_denied">聞き取るには、マイクの許可が必要です。</string>
     <string name="status_mic_denied">マイクが使えません</string>
     <string name="action_allow_mic">マイクを許可する</string>
@@ -40,7 +42,7 @@
     <string name="status_listening">聞き取り中</string>
     <string name="status_stopped">停止中</string>
     <string name="status_manual_only">手入力のみ</string>
-    <string name="transcript_hint">会話を端末の中だけで文字にします。音声は保存しません。\n\nToDoが見つかるとカードが出ます。\n右へ払うと追加、左へ払うと追加しません。</string>
+    <string name="transcript_hint">会話を端末の中だけで文字にします。音声は保存しません。\n\n5分ごとにまとめてToDoを探し、カードで出します。\n右へ払うと追加、左へ払うと追加しません。</string>
     <string name="action_stop">停止</string>
     <string name="stopped_for_silence">しばらく声がなかったので、聞き取りを止めました。</string>
     <string name="action_resume">再開する</string>
