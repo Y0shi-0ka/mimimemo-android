@@ -155,4 +155,17 @@ class RecognizedSpeechTest {
         assertEquals("部屋を片付ける", todo("部屋を片付けるつもり").title)
         assertEquals("レポート出す", todo("明日レポート出す").title)
     }
+
+    @Test
+    fun alreadyListedTodosAreSkipped() {
+        // すでに一覧にある ToDo と同じ候補は出さない（#72）
+        val listed = listOf(Todo(id = 1, title = "レポートを提出する", due = LocalDate.of(2026, 11, 16)))
+        assertTrue(CandidateDeduper.isAlreadyListed(Todo(title = "レポート提出", due = LocalDate.of(2026, 11, 16)), listed))
+        assertTrue(CandidateDeduper.isAlreadyListed(Todo(title = "レポート 提出する。"), listed))
+        // 期限が違えば、期限の変更として出す
+        assertFalse(CandidateDeduper.isAlreadyListed(Todo(title = "レポート提出", due = LocalDate.of(2026, 11, 20)), listed))
+        // 完了したものとは比べない・題名が違えば出す
+        assertFalse(CandidateDeduper.isAlreadyListed(Todo(title = "レポート提出"), listed.map { it.copy(done = true) }))
+        assertFalse(CandidateDeduper.isAlreadyListed(Todo(title = "スライドを作る"), listed))
+    }
 }

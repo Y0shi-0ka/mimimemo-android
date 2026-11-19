@@ -265,9 +265,11 @@ class ListeningService : Service(), SpeechController.ResultListener {
             val filled = SentenceBatch.fillDueFromContext(context + sentences, found) { parser.parse(it.text, it.on) }
                 .drop(context.size)
             val marked = mutableSetOf<Long>()
+            // すでに一覧にある ToDo と同じ候補は出さない（#72）
+            val existing = runCatching { TodoDbHelper(this@ListeningService).use { it.findAllOrderByDue() } }.getOrDefault(emptyList())
             filled.forEachIndexed { i, todo ->
                 // 言い直し・聞き返しで同じ内容がまた来たら、候補は増やさない
-                if (todo == null || !deduper.isNew(todo)) return@forEachIndexed
+                if (todo == null || CandidateDeduper.isAlreadyListed(todo, existing) || !deduper.isNew(todo)) return@forEachIndexed
                 marked += ids[i]
                 // 候補には聞いた時刻を持たせる（カードに出す、#62）。追加するときに登録日時は付け直す
                 ListeningHub.addCandidate(todo.copy(createdAt = sentences[i].at))
