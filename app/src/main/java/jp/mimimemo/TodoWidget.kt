@@ -62,6 +62,8 @@ class TodoWidget : AppWidgetProvider() {
                 if (todo != null) {
                     views.setTextViewText(title, todo.title)
                     views.setTextViewText(due, todo.due?.let { dueLabel(context, it, today) } ?: "")
+                    // 読み上げでどの ToDo か分かるように（#123）
+                    views.setContentDescription(checks[i], context.getString(R.string.widget_done_item, todo.title))
                     // 行ごとに番号を分け、押した行の ToDo だけを完了にする
                     views.setOnClickPendingIntent(
                         checks[i],

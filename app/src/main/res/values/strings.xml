@@ -90,6 +90,8 @@
     <string name="model_remove_confirm">AIのモデルを外して、ルールだけで判定しますか？</string>
     <string name="label_repeat">繰り返し</string>
     <string name="repeat_none">しない</string>
+    <string name="widget_done_item">%1$s を完了にする</string>
+    <string name="filter_tag_action">%1$s だけ表示する</string>
     <string name="widget_more">ほか%1$d件</string>
     <string name="widget_overdue">期限切れ</string>
     <string name="widget_today">今日</string>
