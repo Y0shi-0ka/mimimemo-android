@@ -1,9 +1,15 @@
 package jp.mimimemo
 
+import android.net.Uri
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.lifecycle.lifecycleScope
+import com.google.android.material.snackbar.Snackbar
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import androidx.core.view.isVisible
 import androidx.core.widget.doAfterTextChanged
 import com.google.android.material.chip.Chip
@@ -29,6 +35,8 @@ class SettingsActivity : AppCompatActivity() {
         binding.editTag.doAfterTextChanged { binding.layoutTag.error = null }
         renderTags()
 
+        binding.buttonImportModel.setOnClickListener { pickModel.launch(arrayOf("*/*")) }
+        binding.buttonRemoveModel.setOnClickListener { confirmRemoveModel() }
         binding.buttonAdd.setOnClickListener { addKeyword() }
         binding.editKeyword.onSubmit { addKeyword() }
         binding.editKeyword.doAfterTextChanged { binding.layoutKeyword.error = null }
@@ -37,10 +45,53 @@ class SettingsActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // 端末内の AI を使っているか（#68）。モデルがなければキーワードと言い方のルールで判定する
+        if (importJob?.isActive != true) renderAi()
+    }
+
+    /** 端末内の AI を使っているか（#68）。モデルがなければキーワードと言い方のルールで判定する */
+    private fun renderAi() {
         val model = LocalLlm(this).modelFile()
         binding.textAi.text =
             if (model != null) getString(R.string.ai_on, model.nameWithoutExtension) else getString(R.string.ai_off)
+        binding.buttonImportModel.isEnabled = true
+        binding.buttonRemoveModel.isVisible = model != null
+    }
+
+    private var importJob: Job? = null
+
+    private val pickModel = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) importModel(uri)
+    }
+
+    /** 選んだファイルをモデルとして取り込む（#74）。取り込み中は進み具合を出す */
+    private fun importModel(uri: Uri) {
+        binding.buttonImportModel.isEnabled = false
+        binding.buttonRemoveModel.isVisible = false
+        binding.textAi.text = getString(R.string.model_importing, 0)
+        importJob = lifecycleScope.launch {
+            val result = ModelImport(this@SettingsActivity).import(uri) { percent ->
+                binding.textAi.text = getString(R.string.model_importing, percent)
+            }
+            renderAi()
+            val message = when (result) {
+                is ModelImport.Result.Done -> null
+                ModelImport.Result.NotModel -> getString(R.string.model_not_model)
+                is ModelImport.Result.NoSpace -> getString(R.string.model_no_space, result.needBytes / MB, result.freeBytes / MB)
+                ModelImport.Result.Failed -> getString(R.string.model_failed)
+            }
+            message?.let { Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show() }
+        }
+    }
+
+    private fun confirmRemoveModel() {
+        MaterialAlertDialogBuilder(this)
+            .setMessage(R.string.model_remove_confirm)
+            .setPositiveButton(R.string.model_remove) { _, _ ->
+                ModelImport(this).remove()
+                renderAi()
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     /** めったに使わない「初期値に戻す」は、上のバーのメニューに入れる（issue #29） */
@@ -160,5 +211,6 @@ class SettingsActivity : AppCompatActivity() {
 
     private companion object {
         const val MENU_RESET = 1
+        const val MB = 1024L * 1024
     }
 }
