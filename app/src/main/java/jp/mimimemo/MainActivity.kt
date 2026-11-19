@@ -122,6 +122,7 @@ class MainActivity : AppCompatActivity() {
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menu.add(Menu.NONE, MENU_SUMMARY, Menu.NONE, R.string.menu_summary)
         menu.add(Menu.NONE, MENU_SETTINGS, Menu.NONE, R.string.menu_settings)
+        menu.add(Menu.NONE, MENU_SHARE, Menu.NONE, R.string.menu_share_list)
         // ホーム画面に置けるときに出す（#97）。置いたかどうかでは消さない
         // （ランチャー側で消えても登録が残ることがあり、そのとき置き直せなくなるため、#105）
         if (getSystemService(AppWidgetManager::class.java)?.isRequestPinAppWidgetSupported == true) {
@@ -139,6 +140,10 @@ class MainActivity : AppCompatActivity() {
             startActivity(Intent(this, SettingsActivity::class.java))
             true
         }
+        MENU_SHARE -> {
+            shareList()
+            true
+        }
         MENU_WIDGET -> {
             getSystemService(AppWidgetManager::class.java)
                 ?.requestPinAppWidget(ComponentName(this, TodoWidget::class.java), null, null)
@@ -148,6 +153,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var tagFilter: String? = null
+
+    /** 未完了の ToDo を文章にして共有メニューを開く。絞り込み中はそのタグだけ（#116） */
+    private fun shareList() {
+        val filter = tagFilter
+        val todos = db.findAllOrderByDue().filter { filter == null || it.tag == filter }
+        if (todos.isEmpty()) {
+            Snackbar.make(binding.root, R.string.empty_list, Snackbar.LENGTH_SHORT).show()
+            return
+        }
+        val send = Intent(Intent.ACTION_SEND).setType("text/plain").putExtra(Intent.EXTRA_TEXT, ListText.of(todos))
+        // 自分の共有の入口（#93）は出さない
+        val chooser = Intent.createChooser(send, getString(R.string.menu_share_list))
+            .putExtra(Intent.EXTRA_EXCLUDE_COMPONENTS, arrayOf(ComponentName(this, "jp.mimimemo.ShareTarget")))
+        startActivity(chooser)
+    }
 
     private val clearFilterOnBack = object : OnBackPressedCallback(false) {
         override fun handleOnBackPressed() = clearFilter()
@@ -235,6 +255,7 @@ class MainActivity : AppCompatActivity() {
         const val MENU_SUMMARY = 1
         const val MENU_SETTINGS = 2
         const val MENU_WIDGET = 3
+        const val MENU_SHARE = 4
         const val PREFS = "main"
         const val KEY_LAST_REMIND = "last_remind_date"
         const val KEY_DONE_EXPANDED = "done_expanded"
