@@ -38,6 +38,19 @@ class LocalLlm(context: Context) {
 
     val isAvailable: Boolean get() = modelFile() != null
 
+    /** 読み込みで落ちたモデルを使わないための印（#120）。落ちる前に残るよう、すぐ書き込む */
+    private val guard: LoadGuard = appContext.getSharedPreferences(GUARD_PREFS, Context.MODE_PRIVATE).let { prefs ->
+        LoadGuard({ prefs.getString(it, null) }, { k, v -> prefs.edit().apply { if (v == null) remove(k) else putString(k, v) }.commit() })
+    }
+
+    private fun idOf(file: File) = guard.idOf(file.name, file.length())
+
+    /** 置いてあるモデルが、前に読み込みで落ちたもの（使っていない）か */
+    fun isBlocked(): Boolean = modelFile()?.let { guard.isBad(idOf(it)) } ?: false
+
+    /** モデルを入れ直した・外したら呼ぶ */
+    fun resetGuard() = guard.reset()
+
     /**
      * 読み込めるだけのメモリがあるか。足りないまま読み込むと、OS にアプリごと止められ、
      * 常時聞き取りも止まってしまう（2GB のエミュレータで確認、#68）。足りなければルールで判定する
@@ -60,7 +73,13 @@ class LocalLlm(context: Context) {
             return@withContext null
         }
         lock.withLock {
+            val id = idOf(file)
+            if (!guard.canLoad(id)) {
+                Log.d(TAG, "llm skipped: model crashed before")
+                return@withContext null
+            }
             val started = System.currentTimeMillis()
+            guard.begin(id)
             runCatching {
                 Engine(EngineConfig(modelPath = file.path, backend = Backend.CPU(), cacheDir = cacheDirIfRoomy())).use { engine ->
                     engine.initialize()
@@ -86,7 +105,7 @@ class LocalLlm(context: Context) {
                 Log.d(TAG, "llm: sentences=${sentences.size} tasks=${it.size} ms=${System.currentTimeMillis() - started}")
             }.onFailure {
                 Log.d(TAG, "llm failed: ${it.javaClass.simpleName}")
-            }.getOrNull()
+            }.also { guard.end() }.getOrNull()
         }
     }
 
@@ -109,6 +128,7 @@ class LocalLlm(context: Context) {
     companion object {
         private const val TAG = "MimiMemo"
         const val MODEL_DIR = "models"
+        private const val GUARD_PREFS = "llm_guard"
         private const val MAX_OUTPUT_TOKENS = 512
 
         /** 1回に聞く文の数。多すぎると小さなモデルは取りこぼす */
