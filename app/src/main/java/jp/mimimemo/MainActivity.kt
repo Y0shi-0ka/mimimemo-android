@@ -149,13 +149,22 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun markDone(todo: Todo, done: Boolean) {
-        db.setDone(todo.id, done)
+        if (!done) {
+            db.setDone(todo.id, false)
+            refresh()
+            return
+        }
+        val before = db.complete(todo.id) ?: return
         refresh()
-        if (done) {
-            showUndo(getString(R.string.done_message, todo.title)) {
-                db.setDone(todo.id, false)
-                refresh()
-            }
+        // 繰り返しなら期限を進めたことを、そうでなければ完了を伝える。元に戻すで前の状態に戻す（#107）
+        val message = if (before.repeat != null && before.due != null) {
+            getString(R.string.repeat_advanced, todo.title, DueFormatter.short(before.repeat.nextAfter(before.due, LocalDate.now())))
+        } else {
+            getString(R.string.done_message, todo.title)
+        }
+        showUndo(message) {
+            db.update(before)
+            refresh()
         }
     }
 

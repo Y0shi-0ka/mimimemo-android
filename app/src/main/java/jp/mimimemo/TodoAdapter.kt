@@ -114,7 +114,9 @@ class TodoAdapter(
         }
 
         b.textDue.isVisible = todo.due != null
-        b.textDue.text = DueFormatter.format(todo.due, today)
+        // 繰り返しなら「毎週」などを添える（#107）
+        val dueText = DueFormatter.format(todo.due, today)
+        b.textDue.text = todo.repeat?.let { b.root.context.getString(R.string.due_with_repeat, dueText, it.label) } ?: dueText
         // 急ぎ具合で札の色を変える（issue #35）。完了したものは目立たせない
         val (bg, fg) = dueColors(todo, today)
         b.textDue.backgroundTintList = ColorStateList.valueOf(ContextCompat.getColor(b.root.context, bg))

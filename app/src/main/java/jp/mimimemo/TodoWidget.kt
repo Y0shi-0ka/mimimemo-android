@@ -24,7 +24,8 @@ class TodoWidget : AppWidgetProvider() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == ACTION_DONE) {
             val id = intent.getLongExtra(EXTRA_TODO_ID, 0)
-            if (id > 0) runCatching { TodoDbHelper(context).use { it.setDone(id, true) } }
+            // 繰り返しの ToDo は期限を次へ進める（#107）
+            if (id > 0) runCatching { TodoDbHelper(context).use { it.complete(id) } }
             return
         }
         super.onReceive(context, intent)

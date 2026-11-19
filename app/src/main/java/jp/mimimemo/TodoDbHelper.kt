@@ -28,15 +28,31 @@ class TodoDbHelper(context: Context) :
                 tag TEXT,
                 source_text TEXT,
                 done INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL
+                created_at TEXT NOT NULL,
+                repeat TEXT
             )
             """.trimIndent()
         )
     }
 
+    /** 版を上げても ToDo は消さない。足りない列だけ足す（#107） */
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS $TABLE")
-        onCreate(db)
+        if (oldVersion < 2) db.execSQL("ALTER TABLE $TABLE ADD COLUMN repeat TEXT")
+    }
+
+    /**
+     * 完了にする。繰り返しの ToDo は完了にせず、期限を次の日付へ進める（#107）。
+     * 戻すときのために、変える前の ToDo を返す。
+     */
+    fun complete(id: Long, today: LocalDate = LocalDate.now()): Todo? {
+        val todo = findById(id) ?: return null
+        val repeat = todo.repeat
+        if (repeat != null && todo.due != null) {
+            update(todo.copy(due = repeat.nextAfter(todo.due, today)))
+        } else {
+            setDone(id, true)
+        }
+        return todo
     }
 
     fun insert(todo: Todo): Long = writableDatabase.insert(TABLE, null, toValues(todo)).also { changed() }
@@ -87,6 +103,7 @@ class TodoDbHelper(context: Context) :
         put("source_text", todo.sourceText)
         put("done", if (todo.done) 1 else 0)
         put("created_at", todo.createdAt.format(DATE_TIME))
+        put("repeat", todo.repeat?.key)
     }
 
     private fun fromCursor(c: Cursor): Todo {
@@ -101,12 +118,14 @@ class TodoDbHelper(context: Context) :
             createdAt = str("created_at")
                 ?.let { runCatching { LocalDateTime.parse(it, DATE_TIME) }.getOrNull() }
                 ?: LocalDateTime.now(),
+            repeat = Repeat.fromKey(str("repeat")),
         )
     }
 
     companion object {
         private const val DB_NAME = "mimimemo.db"
-        private const val DB_VERSION = 1
+        // 2：繰り返しの列（#107）
+        private const val DB_VERSION = 2
         private const val TABLE = "todos"
         private val DATE_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
     }

@@ -68,6 +68,10 @@
     <string name="tag_hint">例：データベース</string>
     <string name="reminder_channel">期限のお知らせ</string>
     <string name="widget_done">完了にする</string>
+    <string name="repeat_advanced">「%1$s」の次は%2$sです</string>
+    <string name="due_with_repeat">%1$s・%2$s</string>
+    <string name="label_repeat">繰り返し</string>
+    <string name="repeat_none">しない</string>
     <string name="widget_more">ほか%1$d件</string>
     <string name="widget_overdue">期限切れ</string>
     <string name="widget_today">今日</string>
