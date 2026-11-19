@@ -50,9 +50,14 @@ class SettingsActivity : AppCompatActivity() {
 
     /** 端末内の AI を使っているか（#68）。モデルがなければキーワードと言い方のルールで判定する */
     private fun renderAi() {
-        val model = LocalLlm(this).modelFile()
-        binding.textAi.text =
-            if (model != null) getString(R.string.ai_on, model.nameWithoutExtension) else getString(R.string.ai_off)
+        val llm = LocalLlm(this)
+        val model = llm.modelFile()
+        binding.textAi.text = when {
+            model == null -> getString(R.string.ai_off)
+            // 前に読み込みで落ちたモデルは使っていない（#120）
+            llm.isBlocked() -> getString(R.string.ai_blocked, model.nameWithoutExtension)
+            else -> getString(R.string.ai_on, model.nameWithoutExtension)
+        }
         binding.buttonImportModel.isEnabled = true
         binding.buttonRemoveModel.isVisible = model != null
     }
@@ -72,6 +77,7 @@ class SettingsActivity : AppCompatActivity() {
             val result = ModelImport(this@SettingsActivity).import(uri) { percent ->
                 binding.textAi.text = getString(R.string.model_importing, percent)
             }
+            if (result is ModelImport.Result.Done) LocalLlm(this@SettingsActivity).resetGuard()
             renderAi()
             val message = when (result) {
                 is ModelImport.Result.Done -> null
@@ -88,6 +94,7 @@ class SettingsActivity : AppCompatActivity() {
             .setMessage(R.string.model_remove_confirm)
             .setPositiveButton(R.string.model_remove) { _, _ ->
                 ModelImport(this).remove()
+                LocalLlm(this).resetGuard()
                 renderAi()
             }
             .setNegativeButton(R.string.cancel, null)
