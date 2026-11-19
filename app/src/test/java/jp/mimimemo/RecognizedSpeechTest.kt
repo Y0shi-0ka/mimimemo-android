@@ -136,6 +136,8 @@ class RecognizedSpeechTest {
             "傘持っていくの忘れないようにしておく",
             "明日レポート出す",
             "金曜テストある",
+            "帰りに牛乳買ってきて",
+            "図書館で本借りてきてね",
         ).forEach { assertTrue(it, bare.isCandidate(it)) }
         listOf(
             "今日はいい天気ですね",
