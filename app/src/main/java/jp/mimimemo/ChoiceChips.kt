@@ -88,6 +88,20 @@ object ChoiceChips {
         }
     }
 
+    /** 繰り返しの札：しない・毎日・毎週・毎月（#107） */
+    fun bindRepeat(group: ChipGroup, initial: Repeat?, onChanged: (Repeat?) -> Unit) {
+        prepare(group)
+        (listOf<Repeat?>(null) + Repeat.entries).forEach { repeat ->
+            chip(group, repeat?.label ?: group.context.getString(R.string.repeat_none)).apply {
+                isChecked = repeat == initial
+                setOnClickListener {
+                    isChecked = true
+                    onChanged(repeat)
+                }
+            }
+        }
+    }
+
     private fun prepare(group: ChipGroup) {
         group.removeAllViews()
         group.isSingleSelection = true

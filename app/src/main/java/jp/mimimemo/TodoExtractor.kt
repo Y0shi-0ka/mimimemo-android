@@ -83,7 +83,10 @@ class TodoExtractor(
         if (task || keywords().any { it.isNotBlank() && sentence.contains(it) }) return true
         // 自分が引き受ける言い方（「私がまとめるね」「俺は図を作るわ」）
         if (COMMITMENT.containsMatchIn(body)) return true
-        return ACTION_ENDING.containsMatchIn(body) && parser.find(sentence, today()) != null
+        val hasDate = parser.find(sentence, today()) != null
+        // 「毎週月曜はゴミ出し」「毎月25日に家賃」：繰り返しと日付がそろえば候補にする（#107）
+        if (REPEAT_WEEKLY_MONTHLY.containsMatchIn(body) && hasDate) return true
+        return ACTION_ENDING.containsMatchIn(body) && hasDate
     }
 
     /**
@@ -96,13 +99,26 @@ class TodoExtractor(
     internal fun extractByRule(sentence: String, on: LocalDate = today()): Todo {
         val text = sentence.trim()
         val match = parser.find(text, on)
+        val repeat = repeatOf(text)
+        // 日付が見つかったときの範囲は、漢数字を直したあとの文での位置
+        val title = makeTitle(match?.text ?: text, match?.range)
         return Todo(
-            // 日付が見つかったときの範囲は、漢数字を直したあとの文での位置
-            title = makeTitle(match?.text ?: text, match?.range),
-            due = match?.date,
+            // 「毎週」などは題名から外す（#107）
+            title = title.replace(REPEAT_WORD, "").trimStart(*SEPARATORS, 'に', 'は').ifBlank { title },
+            // 毎日のものは、日付がなければ今日から
+            due = match?.date ?: if (repeat == Repeat.DAILY) on else null,
             tag = guessTag(text),
             sourceText = text,
+            repeat = repeat,
         )
+    }
+
+    /** 「毎日」「毎朝」「毎週」「毎月」から繰り返しを読み取る（#107） */
+    fun repeatOf(text: String): Repeat? = when {
+        Regex("毎週|毎週末").containsMatchIn(text) -> Repeat.WEEKLY
+        Regex("毎月").containsMatchIn(text) -> Repeat.MONTHLY
+        Regex("毎日|毎朝|毎晩|毎夜").containsMatchIn(text) -> Repeat.DAILY
+        else -> null
     }
 
     /** 文から日付表現・前置き・文末の依頼表現を取り除いて、ToDo のタイトルにする。 */
@@ -212,6 +228,10 @@ class TodoExtractor(
 
         /** 質問（依頼・義務の言い方がなければ拾わない、#80） */
         private val QUESTION = Regex("(?:何|なに|どこ|いつ|誰|だれ|どう|だっけ)[^、。]{0,8}$")
+
+        /** 繰り返しの言葉（題名からは外す、#107） */
+        private val REPEAT_WORD = Regex("毎週末?|毎月|毎日|毎朝|毎晩|毎夜")
+        private val REPEAT_WEEKLY_MONTHLY = Regex("毎週|毎月")
 
         /** 自分が引き受ける言い方：「私がまとめる」「俺は図を作る」（#80） */
         private val COMMITMENT = Regex("(?:私|わたし|俺|僕|ぼく|自分|うち)(?:が|は)[^、。]{1,20}[うくすつぬぶむるぐ]$")

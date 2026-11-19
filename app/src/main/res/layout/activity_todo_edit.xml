@@ -59,6 +59,20 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp" />
 
+        <TextView
+            style="@style/MimiMemo.SectionTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:text="@string/label_repeat" />
+
+        <!-- 繰り返し（#107） -->
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chipsRepeat"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" />
+
         <LinearLayout
             android:id="@+id/sourceSection"
             android:layout_width="match_parent"

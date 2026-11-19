@@ -24,6 +24,7 @@ class TodoEditActivity : AppCompatActivity() {
     private var due: LocalDate? = null
     private lateinit var tags: List<String>
     private var tag: String = Todo.TAG_OTHER
+    private var repeat: Repeat? = null
     private var deleted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,12 +51,15 @@ class TodoEditActivity : AppCompatActivity() {
             binding.editTitle.setText(todo?.title.orEmpty())
             due = todo?.due
             tag = todo?.tag ?: Todo.TAG_OTHER
+            repeat = todo?.repeat
         } else {
             due = savedInstanceState.getString(STATE_DUE)?.let(LocalDate::parse)
             tag = savedInstanceState.getString(STATE_TAG) ?: Todo.TAG_OTHER
+            repeat = Repeat.fromKey(savedInstanceState.getString(STATE_REPEAT))
         }
         ChoiceChips.bindDue(binding.chipsDue, due) { due = it }
         ChoiceChips.bindTag(binding.chipsTag, tags, tag) { tag = it }
+        ChoiceChips.bindRepeat(binding.chipsRepeat, repeat) { repeat = it }
 
         binding.sourceSection.isVisible = !todo?.sourceText.isNullOrBlank()
         binding.textSource.text = getString(R.string.source_quote, todo?.sourceText.orEmpty())
@@ -66,6 +70,7 @@ class TodoEditActivity : AppCompatActivity() {
         super.onSaveInstanceState(outState)
         outState.putString(STATE_DUE, due?.toString())
         outState.putString(STATE_TAG, tag)
+        outState.putString(STATE_REPEAT, repeat?.key)
     }
 
     /** 画面を離れるとき（戻る・ホーム・別の画面）に保存する */
@@ -100,16 +105,21 @@ class TodoEditActivity : AppCompatActivity() {
         else -> super.onOptionsItemSelected(item)
     }
 
+    /** 繰り返すのに期限がなければ今日からにする（期限がないと次の日付へ進められないため、#107） */
+    private fun repeatDue(): LocalDate? = due ?: if (repeat != null) LocalDate.now() else null
+
     /** 変わったところがあれば保存する。題名が空なら保存しない（元の題名のまま） */
     private fun save() {
         val title = binding.editTitle.text?.toString()?.trim().orEmpty()
         val todo = existing
         if (todo == null) {
             if (title.isEmpty()) return
-            existing = db.findById(db.insert(Todo(title = title, due = due, tag = tag, createdAt = LocalDateTime.now())))
+            existing = db.findById(
+                db.insert(Todo(title = title, due = repeatDue(), tag = tag, createdAt = LocalDateTime.now(), repeat = repeat)),
+            )
             return
         }
-        val updated = todo.copy(title = title.ifEmpty { todo.title }, due = due, tag = tag)
+        val updated = todo.copy(title = title.ifEmpty { todo.title }, due = repeatDue(), tag = tag, repeat = repeat)
         if (updated != todo) {
             db.update(updated)
             existing = updated
@@ -133,6 +143,7 @@ class TodoEditActivity : AppCompatActivity() {
         private const val EXTRA_ID = "todo_id"
         private const val STATE_DUE = "due"
         private const val STATE_TAG = "tag"
+        private const val STATE_REPEAT = "repeat"
         private const val MENU_DELETE = 1
 
         fun intent(context: Context, id: Long?): Intent =

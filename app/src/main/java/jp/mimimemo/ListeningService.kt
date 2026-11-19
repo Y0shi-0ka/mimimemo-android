@@ -308,6 +308,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
                 // 自分で足したタグ（科目名）が文中にあれば、AI のタグより優先する（#10）
                 tag = extractor.customTag(heard.text) ?: task.tag ?: rule?.tag ?: extractor.guessTag(heard.text),
                 sourceText = heard.text,
+                repeat = extractor.repeatOf(heard.text),
             )
         }
     }

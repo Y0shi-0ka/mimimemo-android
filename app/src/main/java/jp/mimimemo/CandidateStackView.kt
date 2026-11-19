@@ -78,7 +78,10 @@ class CandidateStackView @JvmOverloads constructor(
         b.textHeard.text = DueFormatter.heard(todo.createdAt, java.time.LocalDate.now())
         b.textTitle.text = todo.title
         b.textDue.isVisible = todo.due != null
-        todo.due?.let { b.textDue.text = DueFormatter.short(it) }
+        todo.due?.let { due ->
+            val text = DueFormatter.short(due)
+            b.textDue.text = todo.repeat?.let { context.getString(R.string.due_with_repeat, text, it.label) } ?: text
+        }
         b.textTag.isVisible = todo.tag != Todo.TAG_OTHER
         b.textTag.text = todo.tag
         b.rowMeta.isVisible = b.textDue.isVisible || b.textTag.isVisible
