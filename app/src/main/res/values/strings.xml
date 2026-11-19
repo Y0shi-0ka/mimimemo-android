@@ -29,6 +29,9 @@
     <string name="swipe_skip">しない</string>
     <string name="action_flush">今まとめる</string>
     <string name="due_pick">日付</string>
+    <string name="analyzing">まとめ中…</string>
+    <string name="ai_on">端末内のAIで文脈から判定しています（%1$s）</string>
+    <string name="ai_off">AIのモデルがないので、下の言葉と言い方のルールで判定しています</string>
     <string name="status_paused_battery">一時停止中（電池が少ない）</string>
     <string name="paused_battery_message">電池が少ないので聞き取りを止めています。充電を始めるか電池が戻ると、自動で再開します。</string>
     <string name="action_resume_now">今すぐ再開</string>

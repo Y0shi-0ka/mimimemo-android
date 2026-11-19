@@ -34,6 +34,7 @@ object ListeningHub {
     private val _lines = MutableStateFlow<List<Line>>(emptyList())
     private val _partial = MutableStateFlow("")
     private val _pending = MutableStateFlow(0)
+    private val _analyzing = MutableStateFlow(false)
     private val _candidates = MutableStateFlow<List<Todo>>(emptyList())
 
     val status: StateFlow<Status> = _status
@@ -42,6 +43,8 @@ object ListeningHub {
     val partial: StateFlow<String> = _partial
     /** まだまとめていない文の数 */
     val pending: StateFlow<Int> = _pending
+    /** まとめて調べている最中（AI だと十数秒かかることがある、#68） */
+    val analyzing: StateFlow<Boolean> = _analyzing
     /** 確認待ちの候補。先頭がいま見せているカード。DB にはまだ入っていないので id は負の仮番号 */
     val candidates: StateFlow<List<Todo>> = _candidates
 
@@ -82,6 +85,10 @@ object ListeningHub {
 
     internal fun setPending(count: Int) {
         _pending.value = count
+    }
+
+    internal fun setAnalyzing(value: Boolean) {
+        _analyzing.value = value
     }
 
     /** 文字起こしに1行足して、その行の id を返す */

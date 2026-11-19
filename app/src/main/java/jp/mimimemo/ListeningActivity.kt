@@ -26,6 +26,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import jp.mimimemo.databinding.ActivityListeningBinding
 import jp.mimimemo.databinding.DialogCandidateBinding
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 
@@ -163,7 +164,15 @@ class ListeningActivity : AppCompatActivity() {
                         scrollToBottom()
                     }
                 }
-                launch { ListeningHub.pending.collect { binding.buttonFlush.isVisible = it > 0 && !closing } }
+                launch {
+                    combine(ListeningHub.pending, ListeningHub.analyzing) { pending, analyzing -> pending to analyzing }
+                        .collect { (pending, analyzing) ->
+                            // まとめている最中は「まとめ中…」にして押せなくする（AI だと十数秒かかる、#68）
+                            binding.buttonFlush.isVisible = (pending > 0 || analyzing) && !closing
+                            binding.buttonFlush.isEnabled = !analyzing
+                            binding.buttonFlush.setText(if (analyzing) R.string.analyzing else R.string.action_flush)
+                        }
+                }
                 launch {
                     ListeningHub.candidates.collect {
                         binding.candidateStack.submit(it)

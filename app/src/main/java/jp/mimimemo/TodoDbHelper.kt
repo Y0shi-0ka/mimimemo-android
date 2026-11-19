@@ -61,10 +61,14 @@ class TodoDbHelper(context: Context) :
     fun findCreatedOn(date: LocalDate): List<Todo> =
         query("created_at LIKE ?", arrayOf("$date%"), "created_at, id")
 
-    private fun query(selection: String, args: Array<String>?, orderBy: String?): List<Todo> =
-        readableDatabase.query(TABLE, null, selection, args, null, null, orderBy).use { c ->
-            buildList { while (c.moveToNext()) add(fromCursor(c)) }
+    private fun query(selection: String, args: Array<String>?, orderBy: String?): List<Todo> {
+        val c = readableDatabase.query(TABLE, null, selection, args, null, null, orderBy)
+        try {
+            return buildList { while (c.moveToNext()) add(fromCursor(c)) }
+        } finally {
+            c.close()
         }
+    }
 
     private fun toValues(todo: Todo) = ContentValues().apply {
         put("title", todo.title)

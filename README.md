@@ -51,11 +51,45 @@
 | `SentenceBatch` | 聞き取った文をメモリにためて取り出し、期限のない候補に前後の文の期限を補います（#36） |
 | `CandidateStackView` | 候補カードの束。左右に払って追加する・しないを選びます（#33） |
 | `CandidateDeduper` | 聞き取り中、同じ内容の候補を続けて出さないようにします |
-| `LocalAiClient` | 端末内の生成AI。今は `UnavailableLocalAiClient`（使わない）で、ルール抽出だけで動きます（#7） |
+| `LocalLlm` | 端末内の小さな AI（LiteRT-LM）。5分まとめのときだけ読み込み、終わったら外します。メモリが足りなければ使いません（#68） |
+| `AiTaskPrompt` | AI への問いと、答え（`番号|やること|期限の言葉|タグ`）の読み方 |
 | `DateParser` | 「明日」「来週月曜」「15日まで」「11/20」「十一月二十日」などを日付に変換します |
 | `TodoDbHelper` | SQLite の `todos` テーブル |
 | `ReminderSpeaker` | TextToSpeech での読み上げ。明日が期限の ToDo は、その日はじめて一覧を開いたときに1回だけ読み上げます（通知はしません、#8） |
 | `KeywordStore` | キーワード辞書（SharedPreferences） |
+
+## 端末内の AI（文脈から ToDo を選ぶ）
+
+5分ごとのまとめでは、ルールと端末内の小さな AI の両方で調べ、どちらかが拾った文を候補にします（#68）。会話は端末の外に出しません。AI のモデルがないとき・メモリが足りないときは、ルールだけで動きます。
+
+- 実行環境：LiteRT-LM（`com.google.ai.edge.litertlm:litertlm-android:0.19.1`）
+- 既定のモデル：[Qwen2.5-1.5B-Instruct](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct)（`Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm`、約1.6GB、Apache-2.0）。動かすときに約 2.2GB のメモリを使うので、メモリ 6GB 以上・空き 2.5GB 以上の端末で使います
+- モデルの置き場所：端末の `Android/data/jp.mimimemo/files/models/`（`.litertlm` を1つ置く）
+
+```sh
+curl -L -o model.litertlm https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm
+adb shell mkdir -p /sdcard/Android/data/jp.mimimemo/files/models
+adb push model.litertlm /sdcard/Android/data/jp.mimimemo/files/models/
+```
+
+キーワード辞書の画面の上に、AI を使っているかどうかが出ます。
+
+### 評価セット
+
+`eval/conversations.json` に会話例と正解を置いています（#71）。ルールは `TodoEvalTest`、AI は `eval/run_llm_eval.py` で同じ例を流します。2026-11-20 の結果：
+
+| 方式 | 適合率 | 再現率 |
+|---|---|---|
+| ルールだけ | 0.79 | 0.65 |
+| AI（Qwen2.5-1.5B）だけ | 0.63 | 0.74 |
+| ルールと AI のどちらか（採用） | 0.63 | 0.96 |
+| AI（Qwen3-0.6B）だけ | 0.43 | 0.39 |
+
+```sh
+python -m venv llmenv && llmenv/Scripts/pip install litert-lm-api==0.19.2
+./gradlew testDebugUnitTest --tests jp.mimimemo.TodoEvalTest   # ルールの結果を app/build/eval-rules.json に書く
+llmenv/Scripts/python eval/run_llm_eval.py model.litertlm      # AI と、組み合わせの成績
+```
 
 ## ビルド
 
@@ -147,5 +181,4 @@ adb shell am start -n jp.mimimemo/.ListeningActivity --esa jp.mimimemo.debug.SEN
 
 ## 検討中の issue
 
-- #7 ローカルAI（端末内の生成AI）の実装方式
 - #10 科目・活動タグの候補
