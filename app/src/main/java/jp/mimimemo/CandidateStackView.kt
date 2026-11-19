@@ -122,7 +122,12 @@ class CandidateStackView @JvmOverloads constructor(
         var downX = 0f
         var downY = 0f
         var dragging = false
+        /** 指が動いた（縦も含む）。動いたら離してもタップにしない */
+        var moved = false
         var velocity: VelocityTracker? = null
+
+        // タップ（TalkBack のダブルタップも含む）で詳細を開く
+        front.root.setOnClickListener { if (!flying) items.firstOrNull()?.let(onTap) }
 
         front.root.setOnTouchListener { v, e ->
             if (flying) return@setOnTouchListener true
@@ -131,6 +136,7 @@ class CandidateStackView @JvmOverloads constructor(
                     downX = e.rawX
                     downY = e.rawY
                     dragging = false
+                    moved = false
                     velocity = VelocityTracker.obtain().also { it.addMovement(e) }
                     v.animate().cancel()
                 }
@@ -138,6 +144,7 @@ class CandidateStackView @JvmOverloads constructor(
                     velocity?.addMovement(e)
                     val dx = e.rawX - downX
                     val dy = e.rawY - downY
+                    if (abs(dx) > touchSlop || abs(dy) > touchSlop) moved = true
                     if (!dragging && abs(dx) > touchSlop && abs(dx) > abs(dy)) {
                         dragging = true
                         // 文字起こしのスクロールに指を取られないようにする
@@ -153,7 +160,7 @@ class CandidateStackView @JvmOverloads constructor(
                     velocity = null
                     val dx = e.rawX - downX
                     when {
-                        !dragging -> items.firstOrNull()?.let(onTap)
+                        !dragging -> if (!moved) v.performClick()
                         abs(dx) > width * DECIDE_RATIO -> flyOut(if (dx > 0) 1 else -1)
                         // 短くても素早く払ったら、その向きに決める
                         abs(vx) > flingVelocity && vx * dx > 0 -> flyOut(if (vx > 0) 1 else -1)
