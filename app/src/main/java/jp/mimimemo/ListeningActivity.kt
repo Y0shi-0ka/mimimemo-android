@@ -54,6 +54,9 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     /** 確認待ちの候補（新しいものが先頭）。DB にはまだ入っていないので id は負の仮番号 */
     private val candidates = mutableListOf<Todo>()
     private var nextTempId = -1L
+
+    /** 一度でも声を文字にしたか。したら説明文はもう出さない（issue #31） */
+    private var heardAnything = false
     private val deduper = CandidateDeduper()
     private lateinit var candidateAdapter: TodoAdapter
     private var permissionRequested = false
@@ -149,6 +152,8 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
 
     override fun onPartial(text: String) {
         restartSilenceTimer()
+        heardAnything = true
+        binding.textTranscript.hint = null
         binding.textPartial.text = text
         scrollToBottom()
     }
@@ -156,7 +161,11 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     override fun onStateChanged(state: SpeechController.State) {
         when (state) {
             SpeechController.State.STARTING -> showStatus(R.string.status_starting, Indicator.ON)
-            SpeechController.State.LISTENING -> showStatus(R.string.status_listening, Indicator.ON)
+            SpeechController.State.LISTENING -> {
+                // 次の聞き取りが始まった。確定せずに打ち切られた途中の文字は消す（issue #31）
+                binding.textPartial.text = ""
+                showStatus(R.string.status_listening, Indicator.ON)
+            }
             // 文字は変えず、丸印の動きだけで声の検出を示す（issue #16）
             SpeechController.State.HEARING -> showStatus(R.string.status_listening, Indicator.PULSE)
             SpeechController.State.STOPPED -> {
@@ -316,7 +325,7 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         setListeningActive(true)
         binding.noticeCard.isVisible = false
         binding.manualRow.isVisible = false
-        binding.textTranscript.setHint(R.string.transcript_hint)
+        if (!heardAnything) binding.textTranscript.setHint(R.string.transcript_hint)
     }
 
     /**
