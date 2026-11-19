@@ -4,6 +4,10 @@ import android.appwidget.AppWidgetManager
 import androidx.activity.OnBackPressedCallback
 import android.content.ComponentName
 import android.content.Intent
+import android.content.res.Configuration
+import android.view.Gravity
+import android.widget.LinearLayout
+import androidx.core.view.updateLayoutParams
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
@@ -33,6 +37,7 @@ class MainActivity : AppCompatActivity() {
         ListeningHub.attach(this)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) fitBottomBarToLandscape()
 
         db = TodoDbHelper(this)
         adapter = TodoAdapter(
@@ -153,6 +158,23 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var tagFilter: String? = null
+
+    /**
+     * 横向きでは高さが足りず、下のマイクと札で一覧がほとんど見えなくなる（#129）。
+     * マイクと札を右に横並びにして、低くする。
+     */
+    private fun fitBottomBarToLandscape() {
+        val dp = resources.displayMetrics.density
+        fun px(v: Int) = (v * dp).toInt()
+        binding.bottomBar.orientation = LinearLayout.HORIZONTAL
+        binding.bottomBar.gravity = Gravity.END or Gravity.CENTER_VERTICAL
+        binding.bottomBar.setPadding(0, px(2), px(24), px(8))
+        binding.listeningPill.updateLayoutParams<LinearLayout.LayoutParams> {
+            bottomMargin = 0
+            marginEnd = px(16)
+        }
+        binding.buttonListen.customSize = px(60)
+    }
 
     /** 未完了の ToDo を文章にして共有メニューを開く。絞り込み中はそのタグだけ（#116） */
     private fun shareList() {
