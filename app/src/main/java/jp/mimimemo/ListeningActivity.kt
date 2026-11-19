@@ -195,6 +195,10 @@ class ListeningActivity : AppCompatActivity() {
             is ListeningHub.Status.Listening ->
                 // 文字は変えず、丸印の動きだけで声の検出を示す（#16）
                 showState(R.string.status_listening, if (status.hearing) Indicator.PULSE else Indicator.ON)
+            ListeningHub.Status.PausedLowBattery ->
+                showNotice(R.string.status_paused_battery, getString(R.string.paused_battery_message), R.string.action_resume_now) {
+                    ListeningService.resume(this)
+                }
             ListeningHub.Status.ModelDownloading ->
                 showNotice(R.string.status_model_downloading, getString(R.string.mode_model_downloading))
             ListeningHub.Status.ModelRequired ->
@@ -203,7 +207,7 @@ class ListeningActivity : AppCompatActivity() {
                 }
             // 通常の認識には切り替えず、手入力だけで使う（#9）
             ListeningHub.Status.Unavailable ->
-                showNotice(R.string.status_manual_only, getString(R.string.error_on_device_unavailable))
+                showNotice(R.string.status_manual_only, getString(R.string.error_on_device_unavailable), manual = true)
             ListeningHub.Status.PermissionDenied -> showPermissionDenied()
             is ListeningHub.Status.Failed ->
                 showNotice(R.string.status_stopped, getString(R.string.error_recognizer, status.code), R.string.action_resume) {
@@ -236,8 +240,17 @@ class ListeningActivity : AppCompatActivity() {
             }
     }
 
-    /** 聞き取れない状態。理由と、あればできる操作のボタンを出す。この間も使えるよう手入力の欄を出す */
-    private fun showNotice(status: Int, message: String, action: Int? = null, onAction: () -> Unit = {}) {
+    /**
+     * 聞き取れない状態。理由と、あればできる操作のボタンを出す。
+     * 手入力の欄は、端末内の認識がそもそも使えないときだけ出す（文字入力はできるだけ出さない、#45・#64）
+     */
+    private fun showNotice(
+        status: Int,
+        message: String,
+        action: Int? = null,
+        manual: Boolean = false,
+        onAction: () -> Unit = {},
+    ) {
         binding.textStatus.setText(status)
         setIndicator(Indicator.OFF)
         binding.textNotice.text = message
@@ -247,7 +260,7 @@ class ListeningActivity : AppCompatActivity() {
             binding.buttonAction.setOnClickListener { onAction() }
         }
         binding.noticeCard.isVisible = true
-        binding.manualRow.isVisible = true
+        binding.manualRow.isVisible = manual
         binding.textTranscript.hint = null
     }
 
