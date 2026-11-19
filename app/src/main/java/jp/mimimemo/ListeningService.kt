@@ -43,6 +43,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
 
     private lateinit var speech: SpeechController
     private lateinit var extractor: TodoExtractor
+    private lateinit var llm: LocalLlm
     private val parser = DateParser()
     private val batch = SentenceBatch()
     private val batchLineIds = mutableListOf<Long>()
@@ -72,6 +73,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
         ListeningHub.attach(this)
         val keywords = KeywordStore(this)
         extractor = TodoExtractor(keywords = keywords::load, ai = UnavailableLocalAiClient)
+        llm = LocalLlm(this)
         speech = SpeechController(
             this,
             this,
@@ -256,8 +258,8 @@ class ListeningService : Service(), SpeechController.ResultListener {
             return
         }
         scope.launch {
-            // 期限は、その文を聞いた日を基準に数える（日付をまたいでもずれない、#60）
-            val found = context.map { null } + sentences.map { extractor.extract(it.text, it.on) }
+            ListeningHub.setAnalyzing(true)
+            val found = context.map { null } + findCandidates(sentences)
             val filled = SentenceBatch.fillDueFromContext(context + sentences, found) { parser.parse(it.text, it.on) }
                 .drop(context.size)
             val marked = mutableSetOf<Long>()
@@ -269,8 +271,31 @@ class ListeningService : Service(), SpeechController.ResultListener {
                 ListeningHub.addCandidate(todo.copy(createdAt = sentences[i].at))
             }
             ListeningHub.markCandidates(marked)
+            ListeningHub.setAnalyzing(false)
             updateNotification()
             then()
+        }
+    }
+
+    /**
+     * まとめた文から候補を探す。ルール（#66）と端末内の AI（#68）の、どちらかが拾った文を候補にする。
+     * 評価セット（#71）で、ルールだけ：適合率 0.79・再現率 0.65、AI だけ：0.63・0.74、
+     * どちらか：0.63・0.96 だった。候補は左に払えば捨てられるが、見逃しは戻らないので、見逃しの少なさを取る。
+     * 題名は AI のもの（「牛乳を買う」のように整っている）を優先する。AI が使えないときはルールだけ。
+     * 期限は、その文を聞いた日を基準に数える（#60）。
+     */
+    private suspend fun findCandidates(sentences: List<SentenceBatch.Heard>): List<Todo?> {
+        val byRule = sentences.map { extractor.extract(it.text, it.on) }
+        val byAi = llm.findTasks(sentences.map { it.text })?.associateBy { it.index } ?: return byRule
+        return sentences.mapIndexed { i, heard ->
+            val rule = byRule[i]
+            val task = byAi[i] ?: return@mapIndexed rule
+            Todo(
+                title = task.title,
+                due = task.dueText?.let { parser.parse(it, heard.on) } ?: rule?.due ?: parser.parse(heard.text, heard.on),
+                tag = task.tag ?: rule?.tag ?: extractor.guessTag(heard.text),
+                sourceText = heard.text,
+            )
         }
     }
 

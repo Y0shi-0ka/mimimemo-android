@@ -29,6 +29,14 @@ class SettingsActivity : AppCompatActivity() {
         render()
     }
 
+    override fun onResume() {
+        super.onResume()
+        // 端末内の AI を使っているか（#68）。モデルがなければキーワードと言い方のルールで判定する
+        val model = LocalLlm(this).modelFile()
+        binding.textAi.text =
+            if (model != null) getString(R.string.ai_on, model.nameWithoutExtension) else getString(R.string.ai_off)
+    }
+
     /** めったに使わない「初期値に戻す」は、上のバーのメニューに入れる（issue #29） */
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
         menu.add(Menu.NONE, MENU_RESET, Menu.NONE, R.string.action_reset)
