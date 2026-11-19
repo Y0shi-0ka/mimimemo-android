@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.res.ColorStateList
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -14,11 +15,14 @@ import android.provider.Settings
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
+import android.view.Gravity
 import android.view.LayoutInflater
+import android.widget.LinearLayout
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
+import androidx.core.view.updateLayoutParams
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -56,11 +60,50 @@ class ListeningActivity : AppCompatActivity() {
             if (result[Manifest.permission.RECORD_AUDIO] == true) startService() else showPermissionDenied()
         }
 
+    /**
+     * 横向きでは高さが足りず、カードの下のボタンや停止が画面の外に出る（#89）。
+     * 横向きのときはカードを低くし、✕・✓ はカードの右に縦に並べる。
+     * この画面は回転しても作り直さない（聞き取りを切らないため）ので、回転のたびに合わせ直す。
+     */
+    private fun fitCandidates(landscape: Boolean) {
+        val dp = resources.displayMetrics.density
+        fun px(v: Int) = (v * dp).toInt()
+        binding.candidateArea.orientation = if (landscape) LinearLayout.HORIZONTAL else LinearLayout.VERTICAL
+        binding.candidateArea.gravity = if (landscape) Gravity.CENTER_VERTICAL else Gravity.NO_GRAVITY
+        if (landscape) binding.textRemaining.isVisible = false
+        binding.candidateStack.updateLayoutParams<LinearLayout.LayoutParams> {
+            width = if (landscape) 0 else LinearLayout.LayoutParams.MATCH_PARENT
+            weight = if (landscape) 1f else 0f
+            height = px(if (landscape) 170 else 230)
+            bottomMargin = px(if (landscape) 8 else 20)
+        }
+        binding.candidateButtons.apply {
+            orientation = if (landscape) LinearLayout.VERTICAL else LinearLayout.HORIZONTAL
+            updateLayoutParams<LinearLayout.LayoutParams> {
+                width = if (landscape) LinearLayout.LayoutParams.WRAP_CONTENT else LinearLayout.LayoutParams.MATCH_PARENT
+            }
+            if (landscape) setPadding(px(8), 0, px(20), 0) else setPadding(0, px(2), 0, px(20))
+        }
+        binding.buttonSkip.updateLayoutParams<LinearLayout.LayoutParams> {
+            marginEnd = if (landscape) 0 else px(40)
+            bottomMargin = if (landscape) px(16) else 0
+        }
+    }
+
+    private val isLandscape get() = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        fitCandidates(newConfig.orientation == Configuration.ORIENTATION_LANDSCAPE)
+        if (!isLandscape) binding.textRemaining.isVisible = ListeningHub.candidates.value.size > 1
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ListeningHub.attach(this)
         binding = ActivityListeningBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        if (isLandscape) fitCandidates(true)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
         db = TodoDbHelper(this)
@@ -178,7 +221,7 @@ class ListeningActivity : AppCompatActivity() {
                         binding.candidateStack.submit(it)
                         binding.candidateArea.isVisible = it.isNotEmpty()
                         // 外出中などにたまった候補をまとめて決めるとき、残りの枚数がわかるように（#56）
-                        binding.textRemaining.isVisible = it.size > 1
+                        binding.textRemaining.isVisible = it.size > 1 && !isLandscape
                         binding.textRemaining.text = getString(R.string.candidates_remaining, it.size)
                         // 停止したあと、決めていない候補がなくなったら閉じる
                         if (closing && it.isEmpty() && !ListeningHub.isRunning) finish()
@@ -196,7 +239,8 @@ class ListeningActivity : AppCompatActivity() {
                     if (ListeningHub.candidates.value.isEmpty()) finish()
                 } else {
                     // 止まっている。押すと始める
-                    setStopButton(R.string.action_resume, R.drawable.ic_mic) { startIfNeeded() }
+                    // 初めてのときもあるので「再開」ではなく「始める」（#89）
+                    setStopButton(R.string.action_start, R.drawable.ic_mic) { startIfNeeded() }
                 }
                 return
             }
