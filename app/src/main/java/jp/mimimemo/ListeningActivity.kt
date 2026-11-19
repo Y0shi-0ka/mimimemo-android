@@ -119,13 +119,36 @@ class ListeningActivity : AppCompatActivity() {
         binding.editManual.onSubmit { sendManual() }
 
         observe()
-        if (savedInstanceState == null && intent.getBooleanExtra(EXTRA_START, true)) startIfNeeded()
+        when {
+            savedInstanceState != null -> Unit
+            isShare(intent) -> receiveShared(intent)
+            intent.getBooleanExtra(EXTRA_START, true) -> startIfNeeded()
+        }
+    }
+
+    private fun isShare(intent: Intent) = intent.action == Intent.ACTION_SEND
+
+    /**
+     * 共有された文章を候補カードにする（#93）。聞き取りは始めない。
+     * すでに一覧にある ToDo と同じものは出さない。
+     */
+    private fun receiveShared(intent: Intent) {
+        val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()
+        intent.removeExtra(Intent.EXTRA_TEXT)
+        if (text.isNullOrBlank()) return
+        lifecycleScope.launch {
+            val existing = runCatching { db.findAllOrderByDue() }.getOrDefault(emptyList())
+            val todos = SharedText.findCandidates(text, extractor).filterNot { CandidateDeduper.isAlreadyListed(it, existing) }
+            todos.forEach { ListeningHub.addCandidate(it) }
+            val message = if (todos.isEmpty()) getString(R.string.shared_none) else getString(R.string.shared_found, todos.size)
+            Snackbar.make(binding.root, message, Snackbar.LENGTH_SHORT).setAnchorView(binding.buttonStop).show()
+        }
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        if (debugSentences() != null) startIfNeeded()
+        if (isShare(intent)) receiveShared(intent) else if (debugSentences() != null) startIfNeeded()
     }
 
     override fun onDestroy() {
