@@ -88,6 +88,20 @@ object ChoiceChips {
         }
     }
 
+    /** 文字の札を並べ、1つ選ぶ（朝のお知らせの時刻など、#125） */
+    fun <T> bindOptions(group: ChipGroup, options: List<Pair<T, String>>, initial: T, onChanged: (T) -> Unit) {
+        prepare(group)
+        options.forEach { (value, label) ->
+            chip(group, label).apply {
+                isChecked = value == initial
+                setOnClickListener {
+                    isChecked = true
+                    onChanged(value)
+                }
+            }
+        }
+    }
+
     /** 繰り返しの札：しない・毎日・毎週・毎月（#107） */
     fun bindRepeat(group: ChipGroup, initial: Repeat?, onChanged: (Repeat?) -> Unit) {
         prepare(group)

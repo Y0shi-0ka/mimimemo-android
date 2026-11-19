@@ -64,6 +64,8 @@
     <string name="action_start_listening">聞き取りを始める</string>
     <string name="widget_description">期限の近いToDoと、聞き取りを始めるマイク</string>
     <string name="menu_widget">ホーム画面に置く</string>
+    <string name="morning_title">朝の期限のお知らせ</string>
+    <string name="morning_hour">%1$d時</string>
     <string name="tags_title">タグ</string>
     <string name="tags_description">科目名などを足すと、文中にその名前があればそのタグを付けます</string>
     <string name="tag_hint">例：データベース</string>

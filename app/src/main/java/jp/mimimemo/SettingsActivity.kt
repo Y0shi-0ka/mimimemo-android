@@ -34,6 +34,11 @@ class SettingsActivity : AppCompatActivity() {
         binding.editTag.onSubmit { addTag() }
         binding.editTag.doAfterTextChanged { binding.layoutTag.error = null }
         renderTags()
+        ChoiceChips.bindOptions(
+            binding.chipsMorning,
+            MorningReminder.HOURS.map { it to if (it == 0) getString(R.string.repeat_none) else getString(R.string.morning_hour, it) },
+            MorningReminder.hour(this),
+        ) { MorningReminder.setHour(this, it) }
 
         binding.buttonImportModel.setOnClickListener { pickModel.launch(arrayOf("*/*")) }
         binding.buttonRemoveModel.setOnClickListener { confirmRemoveModel() }
