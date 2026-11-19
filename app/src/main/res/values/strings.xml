@@ -16,21 +16,22 @@
 
     <!-- ① 一覧 -->
     <string name="action_listen">聞き取る</string>
-    <string name="action_add">ToDoを追加</string>
     <string name="empty_list">ToDoはありません</string>
-    <string name="empty_list_sub">マイクを押すと、会話から見つけます</string>
+    <string name="empty_list_sub">マイクを押すと、会話からToDoを見つけます</string>
     <string name="reminder_banner">明日が期限のToDoが%1$d件あります</string>
     <string name="action_speak">読み上げ</string>
     <string name="done_message">「%1$s」を完了にしました</string>
     <string name="undo">元に戻す</string>
     <string name="deleted_message">「%1$s」を削除しました</string>
-    <string name="quick_add_hint">やることを入力</string>
-    <string name="quick_added_message">「%1$s」を追加しました　%2$s</string>
     <string name="swipe_done">完了</string>
     <string name="swipe_delete">削除</string>
     <string name="swipe_add">追加</string>
     <string name="swipe_skip">しない</string>
     <string name="action_flush">今まとめる</string>
+    <string name="listening_with_candidates">聞き取り中・候補%1$d件</string>
+    <string name="candidates_waiting">候補%1$d件</string>
+    <string name="notification_channel">聞き取り</string>
+    <string name="notification_candidates">候補%1$d件</string>
     <string name="action_close">閉じる</string>
     <string name="mic_permission_denied">聞き取るには、マイクの許可が必要です。</string>
     <string name="status_mic_denied">マイクが使えません</string>
@@ -42,9 +43,9 @@
     <string name="status_listening">聞き取り中</string>
     <string name="status_stopped">停止中</string>
     <string name="status_manual_only">手入力のみ</string>
-    <string name="transcript_hint">会話を端末の中だけで文字にします。音声は保存しません。\n\n5分ごとにまとめてToDoを探し、カードで出します。\n右へ払うと追加、左へ払うと追加しません。</string>
+    <string name="transcript_hint">会話を端末の中だけで文字にします。音声は保存しません。
+画面を閉じても聞き取りは続きます。</string>
     <string name="action_stop">停止</string>
-    <string name="stopped_for_silence">しばらく声がなかったので、聞き取りを止めました。</string>
     <string name="action_resume">再開する</string>
     <string name="manual_hint">文を入力</string>
     <string name="action_send">送信</string>

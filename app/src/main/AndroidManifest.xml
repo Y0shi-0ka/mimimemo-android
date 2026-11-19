@@ -4,6 +4,11 @@
     <!-- 聞き取り（機能1）に使う。初回起動時に実行時パーミッションを要求する -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
+    <!-- 画面を閉じても聞き取りを続けるための前面サービスと、その「聞き取り中」の通知（issue #44） -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <!-- Android 11 以降で音声認識サービス・読み上げエンジンを見つけるために必要 -->
     <queries>
         <intent>
@@ -31,13 +36,18 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <!-- 回転などで作り直すと、確認待ちの候補・ダイアログ・文字起こしが消えるため自分で処理する -->
+        <!-- 回転などで作り直すと、開いている詳細ダイアログが消えるため自分で処理する。通知から開いたときは同じ画面を使う -->
         <activity
             android:name=".ListeningActivity"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden"
             android:label="@string/title_listening"
+            android:launchMode="singleTop"
             android:parentActivityName=".MainActivity"
             android:windowSoftInputMode="adjustResize|stateHidden" />
+        <service
+            android:name=".ListeningService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
         <activity
             android:name=".TodoEditActivity"
             android:parentActivityName=".MainActivity"

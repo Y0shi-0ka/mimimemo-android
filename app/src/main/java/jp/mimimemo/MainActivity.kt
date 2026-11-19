@@ -7,10 +7,13 @@ import android.view.MenuItem
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
 import androidx.core.view.isVisible
-import androidx.core.widget.doAfterTextChanged
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.snackbar.Snackbar
 import jp.mimimemo.databinding.ActivityMainBinding
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 
 /** ① ToDo 一覧画面（期限順リスト）。アプリの起点。 */
@@ -19,7 +22,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var db: TodoDbHelper
     private lateinit var adapter: TodoAdapter
-    private lateinit var extractor: TodoExtractor
     private var speaker: ReminderSpeaker? = null
     private val prefs by lazy { getSharedPreferences(PREFS, MODE_PRIVATE) }
 
@@ -47,15 +49,34 @@ class MainActivity : AppCompatActivity() {
             },
         )
 
-        extractor = TodoExtractor(keywords = { emptyList() })
-        // 右のボタンは、空のときマイク（聞き取りへ）、文字を打つと追加になる（issue #20）
-        binding.buttonQuickAdd.setOnClickListener {
-            if (hasQuickAddText()) quickAdd() else startActivity(Intent(this, ListeningActivity::class.java))
-        }
-        binding.editQuickAdd.onSubmit { quickAdd() }
-        binding.editQuickAdd.doAfterTextChanged { renderQuickAddButton() }
-        renderQuickAddButton()
+        // 文字入力はなくし、マイクだけにする（issue #45）。聞き取りはバックグラウンドで続く（#44）
+        binding.buttonListen.setOnClickListener { openListening(start = true) }
+        // 札からは候補を決めに行くだけ。止まっていても聞き取りは始めない
+        binding.listeningPill.setOnClickListener { openListening(start = false) }
         binding.buttonSpeakReminder.setOnClickListener { speakReminder() }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch { ListeningHub.status.collect { renderListening() } }
+                launch { ListeningHub.candidates.collect { renderListening() } }
+            }
+        }
+    }
+
+    private fun openListening(start: Boolean) =
+        startActivity(Intent(this, ListeningActivity::class.java).putExtra(ListeningActivity.EXTRA_START, start))
+
+    /** 聞き取り中、または決めていない候補があるときだけ、マイクの上に札を出す */
+    private fun renderListening() {
+        val running = ListeningHub.isRunning
+        val count = ListeningHub.candidates.value.size
+        binding.listeningPill.isVisible = running || count > 0
+        binding.listeningDot.isVisible = running
+        binding.listeningText.text = when {
+            count > 0 && running -> getString(R.string.listening_with_candidates, count)
+            count > 0 -> getString(R.string.candidates_waiting, count)
+            else -> getString(R.string.status_listening)
+        }
     }
 
     override fun onResume() {
@@ -123,42 +144,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun hasQuickAddText() = !binding.editQuickAdd.text.isNullOrBlank()
-
-    private fun renderQuickAddButton() {
-        val add = hasQuickAddText()
-        if (binding.buttonQuickAdd.tag == add) return
-        binding.buttonQuickAdd.tag = add
-        binding.buttonQuickAdd.setIconResource(if (add) R.drawable.ic_add else R.drawable.ic_mic)
-        binding.buttonQuickAdd.contentDescription =
-            getString(if (add) R.string.action_add else R.string.action_listen)
-    }
-
-    /** 入力欄の1行から、期限・タグも埋めてその場で追加する */
-    private fun quickAdd() {
-        val text = binding.editQuickAdd.text?.toString()?.trim().orEmpty()
-        if (text.isEmpty()) return
-        val todo = extractor.fromManualInput(text)
-        val id = db.insert(todo)
-        binding.editQuickAdd.text = null
-        refresh()
-
-        val detail = listOfNotNull(todo.due?.let { DueFormatter.short(it) }, todo.tag).joinToString("・")
-        showUndo(getString(R.string.quick_added_message, todo.title, detail)) {
-            db.delete(id)
-            refresh()
-        }
-        // 追加した項目が見えるところまでスクロールする
-        binding.listView.post {
-            val position = adapter.currentList.indexOfFirst { it.id == id }
-            if (position >= 0) binding.listView.smoothScrollToPosition(position)
-        }
-    }
-
     private fun showUndo(message: String, undo: () -> Unit) {
         Snackbar.make(binding.root, message, Snackbar.LENGTH_LONG)
             .setAction(R.string.undo) { undo() }
-            .setAnchorView(binding.quickAddBar)
+            .setAnchorView(binding.bottomBar)
             .show()
     }
 
@@ -168,7 +157,7 @@ class MainActivity : AppCompatActivity() {
         if (todos.isEmpty()) return false
         val s = speaker ?: ReminderSpeaker(this) {
             Snackbar.make(binding.root, R.string.tts_unavailable, Snackbar.LENGTH_LONG)
-                .setAnchorView(binding.quickAddBar)
+                .setAnchorView(binding.bottomBar)
                 .show()
         }.also { speaker = it }
         return s.remindDueTomorrow(todos)

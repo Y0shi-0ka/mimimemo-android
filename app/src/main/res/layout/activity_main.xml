@@ -108,64 +108,61 @@
 
         </FrameLayout>
 
-        <!-- 入力と聞き取りを1か所にまとめる。右のボタンは、空のときマイク（聞き取りへ）、文字を打つと追加になる -->
+        <!-- 文字入力はなくし、マイクだけにする（issue #45）。聞き取り中はその上に状態と候補の数を出す -->
         <LinearLayout
-            android:id="@+id/quickAddBar"
+            android:id="@+id/bottomBar"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:gravity="center_vertical"
-            android:orientation="horizontal"
-            android:paddingStart="16dp"
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
             android:paddingTop="8dp"
-            android:paddingEnd="12dp"
-            android:paddingBottom="16dp">
+            android:paddingBottom="24dp">
 
-            <!-- 角の丸い入力欄（枠線なし） -->
-            <com.google.android.material.textfield.TextInputLayout
-                style="@style/Widget.Material3.TextInputLayout.FilledBox"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:id="@+id/listeningPill"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginBottom="14dp"
+                android:background="@drawable/bg_pill"
+                android:backgroundTint="@color/card"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingStart="16dp"
+                android:paddingEnd="18dp"
+                android:visibility="gone">
+
+                <View
+                    android:id="@+id/listeningDot"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:background="@drawable/bg_dot"
+                    android:backgroundTint="@color/listening" />
+
+                <TextView
+                    android:id="@+id/listeningText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:textAppearance="?attr/textAppearanceTitleSmall"
+                    android:textColor="?attr/colorOnSurface"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <com.google.android.material.floatingactionbutton.FloatingActionButton
+                android:id="@+id/buttonListen"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                app:boxBackgroundColor="@color/card"
-                app:boxCornerRadiusBottomEnd="28dp"
-                app:boxCornerRadiusBottomStart="28dp"
-                app:boxCornerRadiusTopEnd="28dp"
-                app:boxCornerRadiusTopStart="28dp"
-                app:boxStrokeWidth="0dp"
-                app:boxStrokeWidthFocused="0dp"
-                app:hintEnabled="false">
-
-                <com.google.android.material.textfield.TextInputEditText
-                    android:id="@+id/editQuickAdd"
-                    android:layout_width="match_parent"
-                    android:layout_height="56dp"
-                    android:hint="@string/quick_add_hint"
-                    android:imeOptions="actionDone"
-                    android:inputType="text"
-                    android:paddingStart="22dp"
-                    android:paddingTop="0dp"
-                    android:paddingEnd="16dp"
-                    android:paddingBottom="0dp" />
-            </com.google.android.material.textfield.TextInputLayout>
-
-            <!-- 空ならマイク（聞き取りへ）、文字を打つと追加 -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/buttonQuickAdd"
-                style="@style/Widget.Material3.Button.IconButton.Filled"
-                android:layout_width="60dp"
-                android:layout_height="60dp"
-                android:layout_marginStart="10dp"
                 android:contentDescription="@string/action_listen"
-                android:insetLeft="0dp"
-                android:insetTop="0dp"
-                android:insetRight="0dp"
-                android:insetBottom="0dp"
-                android:padding="0dp"
-                app:cornerRadius="30dp"
-                app:icon="@drawable/ic_mic"
-                app:iconGravity="textStart"
-                app:iconPadding="0dp"
-                app:iconSize="28dp" />
+                android:src="@drawable/ic_mic"
+                app:backgroundTint="?attr/colorPrimary"
+                app:elevation="4dp"
+                app:fabCustomSize="76dp"
+                app:maxImageSize="34dp"
+                app:shapeAppearanceOverlay="@style/MimiMemo.Circle"
+                app:tint="?attr/colorOnPrimary" />
         </LinearLayout>
     </LinearLayout>
 
