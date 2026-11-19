@@ -22,6 +22,20 @@ class RecognizedTextTest {
     }
 
     @Test
+    fun splitsSegmentIntoSentences() {
+        // 連続認識の区切り1つに入った複数の文（#69）
+        assertEquals(
+            listOf("だから造船やめるよ。", "いやもういいや。", "あれやめるかな。"),
+            RecognizedText.splitSentences("だから造船やめるよ。いやもういいや。あれやめるかな。"),
+        )
+        // 短い切れ端は前の文につなぐ
+        assertEquals(listOf("レポート出しといて。うん。", "金曜までね？"), RecognizedText.splitSentences("レポート出しといて。うん。金曜までね？"))
+        // 記号がなければそのまま
+        assertEquals(listOf("スライド作っといて"), RecognizedText.splitSentences("スライド作っといて"))
+        assertEquals(emptyList<String>(), RecognizedText.splitSentences("  "))
+    }
+
+    @Test
     fun choosesHypothesisWithKeyword() {
         val keywords = TodoExtractor.DEFAULT_KEYWORDS
         val prefer = { s: String -> keywords.any { s.contains(it) } }
