@@ -28,7 +28,7 @@
     <string name="swipe_done">完了</string>
     <string name="swipe_delete">削除</string>
     <string name="swipe_add">追加</string>
-    <string name="swipe_reject">却下</string>
+    <string name="swipe_skip">しない</string>
     <string name="mic_permission_denied">聞き取るには、マイクの許可が必要です。</string>
     <string name="status_mic_denied">マイクが使えません</string>
     <string name="action_allow_mic">マイクを許可する</string>
@@ -56,9 +56,9 @@
     <!-- ③ 候補ダイアログ -->
     <string name="candidate_title">ToDoの候補</string>
     <string name="candidate_add">追加</string>
-    <string name="candidate_reject">却下</string>
+    <string name="candidate_reject">追加しない</string>
     <string name="candidate_added">「%1$s」を追加しました</string>
-    <string name="candidate_rejected">「%1$s」を却下しました</string>
+    <string name="candidate_rejected">「%1$s」を追加しませんでした</string>
     <string name="label_title">やること</string>
     <string name="label_due">期限</string>
     <string name="label_tag">科目・活動</string>

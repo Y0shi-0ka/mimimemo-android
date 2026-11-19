@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  デバッグ版だけの設定。聞き取り画面を adb から開けるようにし、
+  文を渡して候補カードの動きを確かめられるようにする（ListeningActivity.EXTRA_DEBUG_SENTENCES）。
+  adb shell am start -n jp.mimimemo/.ListeningActivity \-\-esa jp.mimimemo.debug.SENTENCES 文1,文2
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application>
+        <activity
+            android:name=".ListeningActivity"
+            android:exported="true"
+            tools:replace="android:exported" />
+    </application>
+</manifest>
