@@ -7,50 +7,59 @@
     android:paddingHorizontal="24dp"
     android:paddingTop="8dp">
 
-    <com.google.android.material.textfield.TextInputLayout
-        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="@string/label_title">
-
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/editTitle"
+        <com.google.android.material.textfield.TextInputLayout
+            android:id="@+id/layoutTitle"
+            style="@style/Widget.Material3.TextInputLayout.FilledBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="text" />
-    </com.google.android.material.textfield.TextInputLayout>
+            android:hint="@string/label_title"
+            app:boxBackgroundColor="@color/card"
+            app:boxCornerRadiusBottomEnd="20dp"
+            app:boxCornerRadiusBottomStart="20dp"
+            app:boxCornerRadiusTopEnd="20dp"
+            app:boxCornerRadiusTopStart="20dp"
+            app:boxStrokeWidth="0dp"
+            app:boxStrokeWidthFocused="0dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/editTitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:textAppearance="?attr/textAppearanceTitleMedium" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+    <TextView
+        style="@style/MimiMemo.SectionTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:text="@string/label_due" />
+
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/chipsDue"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" />
 
     <TextView
         style="@style/MimiMemo.SectionTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
-        android:text="@string/label_due" />
-
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/buttonDue"
-        style="@style/Widget.Material3.Button.OutlinedButton.Icon"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        app:icon="@drawable/ic_calendar" />
-
-    <TextView
-        style="@style/MimiMemo.SectionTitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
         android:text="@string/label_tag" />
 
-    <Spinner
-        android:id="@+id/spinnerTag"
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/chipsTag"
         android:layout_width="match_parent"
-        android:layout_height="48dp" />
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp" />
 
     <TextView
         style="@style/MimiMemo.SectionTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="12dp"
         android:text="@string/label_source" />
 
     <TextView

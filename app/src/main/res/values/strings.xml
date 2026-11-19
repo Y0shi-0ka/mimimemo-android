@@ -28,6 +28,7 @@
     <string name="swipe_add">追加</string>
     <string name="swipe_skip">しない</string>
     <string name="action_flush">今まとめる</string>
+    <string name="due_pick">日付</string>
     <string name="listening_with_candidates">聞き取り中・候補%1$d件</string>
     <string name="candidates_waiting">候補%1$d件</string>
     <string name="notification_channel">聞き取り</string>
@@ -67,12 +68,8 @@
     <string name="label_due">期限</string>
     <string name="label_tag">科目・活動</string>
     <string name="label_source">元の発言</string>
-    <string name="due_none">期限なし</string>
-    <string name="due_clear">期限をなしにする</string>
 
     <!-- ④ 編集 -->
-    <string name="action_save">保存</string>
-    <string name="error_title_required">やることを入力してください</string>
     <string name="delete_confirm">「%1$s」を削除しますか？</string>
     <string name="cancel">キャンセル</string>
 

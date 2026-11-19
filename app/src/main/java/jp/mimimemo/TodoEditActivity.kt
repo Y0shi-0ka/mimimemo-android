@@ -5,16 +5,17 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.Menu
 import android.view.MenuItem
-import android.widget.ArrayAdapter
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.isVisible
-import androidx.core.widget.doAfterTextChanged
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import jp.mimimemo.databinding.ActivityTodoEditBinding
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-/** ④ ToDo 編集画面。id を渡すと編集、渡さないと新規追加。 */
+/**
+ * ④ ToDo 編集画面。id を渡すと編集、渡さないと新規追加。
+ * 期限・タグは札を1タップで選び、保存ボタンは置かずに画面を離れるときに保存する（issue #47）。
+ */
 class TodoEditActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityTodoEditBinding
@@ -22,6 +23,8 @@ class TodoEditActivity : AppCompatActivity() {
     private var existing: Todo? = null
     private var due: LocalDate? = null
     private lateinit var tags: List<String>
+    private var tag: String = Todo.TAG_OTHER
+    private var deleted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -43,38 +46,32 @@ class TodoEditActivity : AppCompatActivity() {
 
         // 保存済みのタグが一覧にない場合も選べるようにする
         tags = if (todo != null && todo.tag !in Todo.TAGS) Todo.TAGS + todo.tag else Todo.TAGS
-        binding.spinnerTag.adapter =
-            ArrayAdapter(this, android.R.layout.simple_spinner_dropdown_item, tags)
-
         if (savedInstanceState == null) {
             binding.editTitle.setText(todo?.title.orEmpty())
             due = todo?.due
-            binding.spinnerTag.setSelection(tags.indexOf(todo?.tag ?: Todo.TAG_OTHER).coerceAtLeast(0))
+            tag = todo?.tag ?: Todo.TAG_OTHER
         } else {
             due = savedInstanceState.getString(STATE_DUE)?.let(LocalDate::parse)
+            tag = savedInstanceState.getString(STATE_TAG) ?: Todo.TAG_OTHER
         }
-        renderDue()
+        ChoiceChips.bindDue(binding.chipsDue, due) { due = it }
+        ChoiceChips.bindTag(binding.chipsTag, tags, tag) { tag = it }
 
         binding.sourceSection.isVisible = !todo?.sourceText.isNullOrBlank()
         binding.textSource.text = getString(R.string.source_quote, todo?.sourceText.orEmpty())
 
-        binding.buttonDue.setOnClickListener {
-            showDuePicker(this, due) {
-                due = it
-                renderDue()
-            }
-        }
-        binding.buttonClearDue.setOnClickListener {
-            due = null
-            renderDue()
-        }
-        binding.editTitle.doAfterTextChanged { binding.layoutTitle.error = null }
-        binding.buttonSave.setOnClickListener { save() }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
         outState.putString(STATE_DUE, due?.toString())
+        outState.putString(STATE_TAG, tag)
+    }
+
+    /** 画面を離れるとき（戻る・ホーム・別の画面）に保存する */
+    override fun onPause() {
+        super.onPause()
+        if (!deleted) save()
     }
 
     override fun onDestroy() {
@@ -103,25 +100,20 @@ class TodoEditActivity : AppCompatActivity() {
         else -> super.onOptionsItemSelected(item)
     }
 
-    private fun renderDue() {
-        binding.buttonDue.text = due?.let { DueFormatter.short(it) } ?: getString(R.string.due_none)
-        binding.buttonClearDue.isVisible = due != null
-    }
-
+    /** 変わったところがあれば保存する。題名が空なら保存しない（元の題名のまま） */
     private fun save() {
         val title = binding.editTitle.text?.toString()?.trim().orEmpty()
-        if (title.isEmpty()) {
-            binding.layoutTitle.error = getString(R.string.error_title_required)
-            return
-        }
-        val tag = binding.spinnerTag.selectedItem as String
         val todo = existing
         if (todo == null) {
-            db.insert(Todo(title = title, due = due, tag = tag, createdAt = LocalDateTime.now()))
-        } else {
-            db.update(todo.copy(title = title, due = due, tag = tag))
+            if (title.isEmpty()) return
+            existing = db.findById(db.insert(Todo(title = title, due = due, tag = tag, createdAt = LocalDateTime.now())))
+            return
         }
-        finish()
+        val updated = todo.copy(title = title.ifEmpty { todo.title }, due = due, tag = tag)
+        if (updated != todo) {
+            db.update(updated)
+            existing = updated
+        }
     }
 
     private fun confirmDelete() {
@@ -129,6 +121,7 @@ class TodoEditActivity : AppCompatActivity() {
         MaterialAlertDialogBuilder(this)
             .setMessage(getString(R.string.delete_confirm, todo.title))
             .setPositiveButton(R.string.menu_delete) { _, _ ->
+                deleted = true
                 db.delete(todo.id)
                 finish()
             }
@@ -139,6 +132,7 @@ class TodoEditActivity : AppCompatActivity() {
     companion object {
         private const val EXTRA_ID = "todo_id"
         private const val STATE_DUE = "due"
+        private const val STATE_TAG = "tag"
         private const val MENU_DELETE = 1
 
         fun intent(context: Context, id: Long?): Intent =
