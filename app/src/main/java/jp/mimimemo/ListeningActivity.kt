@@ -19,6 +19,7 @@ import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.WindowManager
 import android.widget.ArrayAdapter
+import androidx.activity.OnBackPressedCallback
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
@@ -29,12 +30,15 @@ import com.google.android.material.snackbar.Snackbar
 import jp.mimimemo.databinding.ActivityListeningBinding
 import jp.mimimemo.databinding.DialogCandidateBinding
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
  * ② 聞き取り画面。
  * この画面を表示している間だけ聞き取り、離れると止める（onPause）。
- * ToDo の候補は聞き取りを止めずにカードで1枚ずつ出し、右へ払うと追加・左へ払うと追加しない（issue #33）。
+ * 聞き取った文はメモリにためて5分ごとにまとめて調べ、候補をカードで出す（issue #36）。
+ * 会話の途中で何度もカードが割り込まず、前後の文から期限を補える。文は保存しない。
+ * カードは右へ払うと追加・左へ払うと追加しない（issue #33）。
  * カードをタップすると ③ 確認ダイアログで詳細を直してから追加できる（issue #12）。
  *
  * 聞き取り中は画面を点けたままにするので、電池を使いすぎないようにしている（issue #21）：
@@ -47,7 +51,8 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     private lateinit var extractor: TodoExtractor
     private lateinit var db: TodoDbHelper
 
-    private data class Line(val text: String, val candidate: Boolean)
+    /** 文字起こしの1行。まとめて調べたあとで候補になったら candidate を true にする */
+    private class Line(val text: String, var candidate: Boolean = false)
 
     private val lines = ArrayDeque<Line>()
     /** 確認待ちの候補（先頭がいま見せているカード。新しいものは後ろに足す）。DB にはまだ入っていないので id は負の仮番号 */
@@ -57,6 +62,15 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     /** 一度でも声を文字にしたか。したら説明文はもう出さない（issue #31） */
     private var heardAnything = false
     private val deduper = CandidateDeduper()
+
+    /** まだ調べていない文（issue #36）。batchLines は lines の中の同じ行を指す */
+    private val batch = SentenceBatch()
+    private val batchLines = mutableListOf<Line>()
+    private val parser = DateParser()
+    private val flushBatch = Runnable { flush() }
+
+    /** 停止を押したあと、残った候補を決めている間。もう一度押すと閉じる */
+    private var closing = false
     private var permissionRequested = false
     private var pulse: ObjectAnimator? = null
 
@@ -88,7 +102,11 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         binding.buttonAdd.setOnClickListener { binding.candidateStack.swipe(accept = true) }
         binding.buttonSkip.setOnClickListener { binding.candidateStack.swipe(accept = false) }
 
-        binding.buttonStop.setOnClickListener { finish() }
+        binding.buttonStop.setOnClickListener { stopAndClose() }
+        binding.buttonFlush.setOnClickListener { flush() }
+        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
+            override fun handleOnBackPressed() = stopAndClose()
+        })
         binding.buttonSend.setOnClickListener { sendManual() }
         binding.editManual.onSubmit { sendManual() }
 
@@ -127,8 +145,26 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     }
 
     override fun onSupportNavigateUp(): Boolean {
-        finish()
+        stopAndClose()
         return true
+    }
+
+    /**
+     * 停止・戻る。ためた文をまとめてから閉じる。
+     * 決めていない候補が残っていたら閉じずにカードを出し、もう一度押したら閉じる。
+     */
+    private fun stopAndClose() {
+        if (closing || (batch.size == 0 && candidates.isEmpty())) {
+            finish()
+            return
+        }
+        closing = true
+        speech.stop()
+        binding.buttonStop.setText(R.string.action_close)
+        binding.buttonStop.setIconResource(R.drawable.ic_close)
+        flush {
+            if (candidates.isEmpty()) finish()
+        }
     }
 
     private fun hasMicPermission() =
@@ -136,7 +172,10 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
             PackageManager.PERMISSION_GRANTED
 
     /** 状態と認識方式の表示は onStateChanged / onFatalError で更新される */
-    private fun startListening() = speech.start()
+    private fun startListening() {
+        if (closing) return
+        speech.start()
+    }
 
     // ---- SpeechController.ResultListener ----
 
@@ -197,17 +236,52 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         val text = binding.editManual.text?.toString()?.trim().orEmpty()
         if (text.isEmpty()) return
         binding.editManual.text = null
+        // 手で打った文は、待たずにすぐ調べる
         handleSentence(text)
+        flush()
     }
 
+    /** 聞き取った文をためる。最初の1文から5分後にまとめて調べる（issue #36） */
     private fun handleSentence(text: String) {
-        lifecycleScope.launch {
-            // 言い直し・聞き返しで同じ内容がまた来たら、候補は増やさない
-            val todo = extractor.extract(text)?.takeIf { deduper.isNew(it) }
-            addLine(Line(text, todo != null))
-            // 新しい候補は束の後ろに足す。触っている最中のカードは入れ替えない
-            if (todo != null) addCandidate(todo.copy(id = nextTempId--), candidates.size)
+        val line = Line(text)
+        addLine(line)
+        batch.add(text)
+        batchLines += line
+        if (batch.size == 1) timers.postDelayed(flushBatch, BATCH_MS)
+        renderFlushButton()
+    }
+
+    /** ためた文をまとめて調べ、候補をカードの束の後ろに足す */
+    private fun flush(then: () -> Unit = {}) {
+        timers.removeCallbacks(flushBatch)
+        val (context, sentences) = batch.drain()
+        val targets = batchLines.toList()
+        batchLines.clear()
+        renderFlushButton()
+        if (sentences.isEmpty()) {
+            then()
+            return
         }
+        lifecycleScope.launch {
+            val found = context.map { null } + sentences.map { extractor.extract(it) }
+            val today = LocalDate.now()
+            val filled = SentenceBatch.fillDueFromContext(context + sentences, found) { parser.parse(it, today) }
+                .drop(context.size)
+            filled.forEachIndexed { i, todo ->
+                // 言い直し・聞き返しで同じ内容がまた来たら、候補は増やさない
+                if (todo == null || !deduper.isNew(todo)) return@forEachIndexed
+                targets[i].candidate = true
+                // 触っている最中のカードは入れ替えない
+                addCandidate(todo.copy(id = nextTempId--), candidates.size)
+            }
+            renderLines()
+            then()
+        }
+    }
+
+    /** ためている文があるときだけ「今まとめる」を出す */
+    private fun renderFlushButton() {
+        binding.buttonFlush.isVisible = batch.size > 0 && !closing
     }
 
     private fun addCandidate(candidate: Todo, index: Int = 0) {
@@ -292,7 +366,10 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     private fun addLine(line: Line) {
         lines.addLast(line)
         while (lines.size > MAX_LINES) lines.removeFirst()
+        renderLines()
+    }
 
+    private fun renderLines() {
         val highlight = ContextCompat.getColor(this, R.color.candidate_highlight)
         val sb = SpannableStringBuilder()
         for (l in lines) {
@@ -395,6 +472,7 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
     /** 声がないまま長く経ったので止める。画面も点けたままにしなくなる */
     private fun stopBecauseSilent() {
         speech.stop()
+        flush()
         showNotice(R.string.status_stopped, getString(R.string.stopped_for_silence), R.string.action_resume) {
             startListening()
         }
@@ -429,6 +507,9 @@ class ListeningActivity : AppCompatActivity(), SpeechController.ResultListener {
         /** 触れずにこの時間が経ったら画面を暗くする */
         const val DIM_AFTER_MS = 20_000L
         const val DIM_BRIGHTNESS = 0.01f
+
+        /** 聞き取った文をためておき、この間隔でまとめて調べる（issue #36） */
+        const val BATCH_MS = 5 * 60_000L
 
         /** 声がないままこの時間が経ったら聞き取りを止める */
         const val SILENCE_STOP_MS = 10 * 60_000L
