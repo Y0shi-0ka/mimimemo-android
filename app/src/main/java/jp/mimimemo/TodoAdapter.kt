@@ -130,6 +130,8 @@ class TodoAdapter(
         val tagClick = onTagClick
         if (tagClick != null) b.textTag.setOnClickListener { tagClick(todo.tag) } else b.textTag.setOnClickListener(null)
         b.textTag.isClickable = tagClick != null
+        // 押すと何が起きるか読み上げる（#123）
+        b.textTag.contentDescription = if (tagClick != null) b.root.context.getString(R.string.filter_tag_action, todo.tag) else null
         b.rowMeta.isVisible = b.textDue.isVisible || b.textTag.isVisible
 
         b.textSource.isVisible = showSource && !todo.sourceText.isNullOrBlank()
