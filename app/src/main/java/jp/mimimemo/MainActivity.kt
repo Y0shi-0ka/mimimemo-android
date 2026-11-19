@@ -36,6 +36,11 @@ class MainActivity : AppCompatActivity() {
             onClick = { todo -> startActivity(TodoEditActivity.intent(this, todo.id)) },
             onDoneChanged = ::markDone,
         )
+        // 完了の見出しを押すと開閉する。開閉は覚えておく（#87）
+        adapter.onToggleDone = {
+            prefs.edit { putBoolean(KEY_DONE_EXPANDED, !prefs.getBoolean(KEY_DONE_EXPANDED, false)) }
+            refresh()
+        }
         binding.listView.layoutManager = LinearLayoutManager(this)
         binding.listView.adapter = adapter
 
@@ -48,8 +53,8 @@ class MainActivity : AppCompatActivity() {
             right = SwipeAction(R.string.swipe_done, R.drawable.ic_check, getColor(R.color.swipe_positive)) {
                 adapter.todoAt(it)?.let { todo -> markDone(todo, true) }
             },
-            // 見出しはスワイプしない（#49）
-            canSwipe = { adapter.todoAt(it.bindingAdapterPosition) != null },
+            // 見出しと完了したものはスワイプしない（#49・#87）
+            canSwipe = { adapter.todoAt(it.bindingAdapterPosition)?.done == false },
         )
 
         // 文字入力はなくし、マイクだけにする（issue #45）。聞き取りはバックグラウンドで続く（#44）
@@ -120,8 +125,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun refresh() {
         val todos = db.findAllOrderByDue()
-        adapter.submitGrouped(todos)
-        binding.emptyView.isVisible = todos.isEmpty()
+        val done = db.findDone()
+        adapter.submitGrouped(todos, done, prefs.getBoolean(KEY_DONE_EXPANDED, false))
+        binding.emptyView.isVisible = todos.isEmpty() && done.isEmpty()
 
         val dueTomorrow = db.findDueOn(LocalDate.now().plusDays(1))
         binding.reminderCard.isVisible = dueTomorrow.isNotEmpty()
@@ -182,5 +188,6 @@ class MainActivity : AppCompatActivity() {
         const val MENU_SETTINGS = 2
         const val PREFS = "main"
         const val KEY_LAST_REMIND = "last_remind_date"
+        const val KEY_DONE_EXPANDED = "done_expanded"
     }
 }
