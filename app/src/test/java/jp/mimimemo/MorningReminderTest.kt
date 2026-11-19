@@ -36,4 +36,12 @@ class MorningReminderTest {
         assertEquals("明日 1件", m.title)
         assertEquals(listOf("明日A"), m.lines)
     }
+
+    @Test
+    fun nextAtIsTodayOrTomorrow() {
+        val morning = java.time.LocalDateTime.of(2026, 11, 20, 6, 30)
+        assertEquals(java.time.LocalDateTime.of(2026, 11, 20, 7, 0), MorningReminder.nextAt(morning, 7))
+        val late = java.time.LocalDateTime.of(2026, 11, 20, 9, 0)
+        assertEquals(java.time.LocalDateTime.of(2026, 11, 21, 9, 0), MorningReminder.nextAt(late, 9))
+    }
 }

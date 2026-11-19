@@ -70,7 +70,7 @@
 | `DateParser` | 「明日」「来週月曜」「15日まで」「11/20」「十一月二十日」などを日付に変換します |
 | `TodoDbHelper` | SQLite の `todos` テーブル |
 | `ReminderSpeaker` | TextToSpeech での読み上げ。明日が期限の ToDo は、その日はじめて一覧を開いたときに1回だけ読み上げます（#8） |
-| `MorningReminder` | 毎朝8〜9時の間に、期限切れ・今日・明日の ToDo を通知します。オン・オフは Android の通知設定（チャンネル「期限のお知らせ」）で切り替えます（#100） |
+| `MorningReminder` | 毎朝（設定で 7時・8時・9時・しない を選べる、初期値8時）から1時間の間に、期限切れ・今日・明日の ToDo を通知します（#100・#125） |
 | `TodoWidget` | ホーム画面ウィジェット。ToDo を変えたとき（`TodoDbHelper` の書き込み）に描き直します（#97） |
 | `SharedText` | 共有された文章を、聞き取りと同じ流れで候補にします（#93） |
 | `KeywordStore` | キーワード辞書（SharedPreferences） |

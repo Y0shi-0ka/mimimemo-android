@@ -122,6 +122,20 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp" />
 
+        <!-- 朝の期限のお知らせの時刻（#125） -->
+        <TextView
+            style="@style/MimiMemo.SectionTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="32dp"
+            android:text="@string/morning_title" />
+
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/chipsMorning"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp" />
+
         <!-- 自分で足すタグ（科目名など、#10）。文中にこの名前があれば、そのタグを付ける -->
         <TextView
             style="@style/MimiMemo.SectionTitle"
