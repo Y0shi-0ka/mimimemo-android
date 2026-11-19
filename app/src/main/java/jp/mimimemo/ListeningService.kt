@@ -91,6 +91,10 @@ class ListeningService : Service(), SpeechController.ResultListener {
             ACTION_FLUSH -> flush()
             ACTION_DOWNLOAD_MODEL -> speech.requestModelDownload()
             ACTION_RESUME -> resume()
+            ACTION_ACCEPT, ACTION_REJECT -> {
+                decideFromNotification(intent.action == ACTION_ACCEPT, intent.getLongExtra(EXTRA_CANDIDATE_ID, 0))
+                return START_NOT_STICKY
+            }
             else -> startListening()
         }
         // デバッグ版だけ：adb から渡した文を、聞き取った文と同じ流れで扱う（実機で確かめるため）
@@ -129,6 +133,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
             return
         }
         started = true
+        scope.launch { ListeningHub.candidates.collect { updateNotification() } }
         val filter = IntentFilter().apply {
             addAction(Intent.ACTION_BATTERY_LOW)
             addAction(Intent.ACTION_BATTERY_OKAY)
@@ -320,18 +325,50 @@ class ListeningService : Service(), SpeechController.ResultListener {
             this, 1, Intent(this, ListeningService::class.java).setAction(ACTION_STOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val count = ListeningHub.candidates.value.size
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val candidates = ListeningHub.candidates.value
+        val top = candidates.firstOrNull()
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_mic)
             .setContentTitle(getString(if (paused) R.string.status_paused_battery else R.string.status_listening))
-            .setContentText(if (count > 0) getString(R.string.notification_candidates, count) else null)
             .setContentIntent(open)
+        if (top != null) {
+            // 先頭の候補を出し、通知から直接「追加」「しない」で決められるようにする（#83）
+            val detail = listOfNotNull(top.title, top.due?.let { DueFormatter.short(it) }).joinToString("・")
+            builder.setContentText(getString(R.string.notification_top_candidate, candidates.size, detail))
+                .setStyle(NotificationCompat.BigTextStyle().bigText(getString(R.string.notification_top_candidate, candidates.size, detail)))
+                .addAction(R.drawable.ic_check, getString(R.string.swipe_add), candidateAction(ACTION_ACCEPT, top.id, 2))
+                .addAction(R.drawable.ic_close, getString(R.string.swipe_skip), candidateAction(ACTION_REJECT, top.id, 3))
+        }
+        return builder
             .addAction(R.drawable.ic_stop, getString(R.string.action_stop), stop)
             .setOngoing(true)
             .setSilent(true)
             .setCategory(NotificationCompat.CATEGORY_SERVICE)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .build()
+    }
+
+    /** 通知のボタンから候補を決める。押したときの候補（id）だけを決める（その間に変わっていたら何もしない） */
+    private fun candidateAction(action: String, candidateId: Long, requestCode: Int): PendingIntent =
+        PendingIntent.getService(
+            this, requestCode,
+            Intent(this, ListeningService::class.java).setAction(action).putExtra(EXTRA_CANDIDATE_ID, candidateId),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+
+    /** 通知の「追加」「しない」（#83） */
+    private fun decideFromNotification(accept: Boolean, candidateId: Long) {
+        val candidate = ListeningHub.candidates.value.firstOrNull { it.id == candidateId } ?: return
+        ListeningHub.removeCandidate(candidate) ?: return
+        if (accept) {
+            runCatching {
+                TodoDbHelper(this).use { it.insert(candidate.copy(id = 0, createdAt = java.time.LocalDateTime.now())) }
+            }.onFailure {
+                // 保存できなければ候補に戻す
+                ListeningHub.restoreCandidate(candidate, 0)
+            }
+        }
+        updateNotification()
     }
 
     private fun updateNotification() {
@@ -351,6 +388,9 @@ class ListeningService : Service(), SpeechController.ResultListener {
         private const val ACTION_FLUSH = "jp.mimimemo.action.FLUSH"
         private const val ACTION_DOWNLOAD_MODEL = "jp.mimimemo.action.DOWNLOAD_MODEL"
         private const val ACTION_RESUME = "jp.mimimemo.action.RESUME"
+        private const val ACTION_ACCEPT = "jp.mimimemo.action.ACCEPT"
+        private const val ACTION_REJECT = "jp.mimimemo.action.REJECT"
+        private const val EXTRA_CANDIDATE_ID = "jp.mimimemo.extra.CANDIDATE_ID"
 
         /** この残量（%）以下で充電していなければ、始めるときに一時停止にする */
         private const val LOW_BATTERY_PERCENT = 15

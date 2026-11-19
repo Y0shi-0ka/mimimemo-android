@@ -42,7 +42,7 @@
     <string name="listening_with_candidates">聞き取り中・候補%1$d件</string>
     <string name="candidates_waiting">候補%1$d件</string>
     <string name="notification_channel">聞き取り</string>
-    <string name="notification_candidates">候補%1$d件</string>
+    <string name="notification_top_candidate">候補%1$d件：%2$s</string>
     <string name="action_close">閉じる</string>
     <string name="mic_permission_denied">聞き取るには、マイクの許可が必要です。</string>
     <string name="status_mic_denied">マイクが使えません</string>
