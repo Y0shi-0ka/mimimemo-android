@@ -29,7 +29,12 @@ class TodoAdapter(
     sealed interface Row {
         data class Header(val section: DueSections.Section, val count: Int) : Row
         data class Item(val todo: Todo) : Row
+        /** 完了した ToDo の見出し。押すと開閉する（#87） */
+        data class DoneHeader(val count: Int, val expanded: Boolean) : Row
     }
+
+    /** 完了の見出しを押したとき */
+    var onToggleDone: () -> Unit = {}
 
     class ItemHolder(val binding: ItemTodoBinding) : RecyclerView.ViewHolder(binding.root)
     class HeaderHolder(val text: TextView) : RecyclerView.ViewHolder(text)
@@ -37,18 +42,29 @@ class TodoAdapter(
     /** 区切らずに並べる（今日のまとめ） */
     fun submitTodos(todos: List<Todo>) = submitList(todos.map { Row.Item(it) })
 
-    /** 期限の区切りごとに見出しを入れて並べる（一覧） */
-    fun submitGrouped(todos: List<Todo>, today: LocalDate = LocalDate.now()) =
-        submitList(
-            DueSections.group(todos, today).flatMap { (section, items) ->
-                listOf(Row.Header(section, items.size)) + items.map { Row.Item(it) }
-            }
-        )
+    /**
+     * 期限の区切りごとに見出しを入れて並べる（一覧）。
+     * 完了したものは、いちばん下の「完了」の見出しの下に、開いているときだけ並べる（#87）。
+     */
+    fun submitGrouped(
+        todos: List<Todo>,
+        done: List<Todo> = emptyList(),
+        doneExpanded: Boolean = false,
+        today: LocalDate = LocalDate.now(),
+    ) = submitList(
+        DueSections.group(todos, today).flatMap { (section, items) ->
+            listOf(Row.Header(section, items.size)) + items.map { Row.Item(it) }
+        } + if (done.isEmpty()) {
+            emptyList()
+        } else {
+            listOf(Row.DoneHeader(done.size, doneExpanded)) + if (doneExpanded) done.map { Row.Item(it) } else emptyList()
+        }
+    )
 
     /** その位置の ToDo。見出しなら null */
     fun todoAt(position: Int): Todo? = (currentList.getOrNull(position) as? Row.Item)?.todo
 
-    override fun getItemViewType(position: Int): Int = if (getItem(position) is Row.Header) TYPE_HEADER else TYPE_ITEM
+    override fun getItemViewType(position: Int): Int = if (getItem(position) is Row.Item) TYPE_ITEM else TYPE_HEADER
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
         val inflater = LayoutInflater.from(parent.context)
@@ -64,6 +80,8 @@ class TodoAdapter(
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         when (val row = getItem(position)) {
             is Row.Header -> (holder as HeaderHolder).text.apply {
+                setOnClickListener(null)
+                isClickable = false
                 text = context.getString(R.string.section_header, row.section.label, row.count)
                 // 期限切れの見出しだけ急ぎの色にする
                 setTextColor(
@@ -74,6 +92,14 @@ class TodoAdapter(
                 )
             }
             is Row.Item -> bindItem((holder as ItemHolder).binding, row.todo)
+            is Row.DoneHeader -> (holder as HeaderHolder).text.apply {
+                text = context.getString(
+                    if (row.expanded) R.string.done_header_expanded else R.string.done_header_collapsed,
+                    row.count,
+                )
+                setTextColor(ContextCompat.getColor(context, R.color.on_surface_variant))
+                setOnClickListener { onToggleDone() }
+            }
         }
     }
 
@@ -126,6 +152,7 @@ class TodoAdapter(
             override fun areItemsTheSame(oldItem: Row, newItem: Row) = when {
                 oldItem is Row.Header && newItem is Row.Header -> oldItem.section == newItem.section
                 oldItem is Row.Item && newItem is Row.Item -> oldItem.todo.id == newItem.todo.id
+                oldItem is Row.DoneHeader && newItem is Row.DoneHeader -> true
                 else -> false
             }
             override fun areContentsTheSame(oldItem: Row, newItem: Row) = oldItem == newItem

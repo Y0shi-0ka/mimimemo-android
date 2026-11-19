@@ -53,6 +53,9 @@ class TodoDbHelper(context: Context) :
     /** 未完了の ToDo を期限が近い順に返す（期限なしは最後）。 */
     fun findAllOrderByDue(): List<Todo> = query("done = 0", null, "due IS NULL, due, id")
 
+    /** 完了した ToDo。新しく登録したものから [limit] 件（#87） */
+    fun findDone(limit: Int = 50): List<Todo> = query("done = 1", null, "id DESC LIMIT $limit")
+
     /** 指定した日が期限の未完了 ToDo（前日リマインド用）。 */
     fun findDueOn(date: LocalDate): List<Todo> =
         query("done = 0 AND due = ?", arrayOf(date.toString()), "id")
