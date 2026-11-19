@@ -80,6 +80,13 @@
     <string name="menu_share_list">一覧を送る</string>
     <string name="reject_all">残りの候補をすべてしない</string>
     <string name="rejected_all">%1$d件をしないにしました</string>
+    <string name="model_import">モデルを取り込む</string>
+    <string name="model_remove">外す</string>
+    <string name="model_importing">モデルを取り込んでいます… %1$d%%</string>
+    <string name="model_not_model">.litertlm のファイルを選んでください</string>
+    <string name="model_no_space">空きが足りません（%1$dMB 要、空き %2$dMB）</string>
+    <string name="model_failed">取り込めませんでした</string>
+    <string name="model_remove_confirm">AIのモデルを外して、ルールだけで判定しますか？</string>
     <string name="label_repeat">繰り返し</string>
     <string name="repeat_none">しない</string>
     <string name="widget_more">ほか%1$d件</string>

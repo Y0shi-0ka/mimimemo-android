@@ -82,6 +82,7 @@
 
 - 実行環境：LiteRT-LM（`com.google.ai.edge.litertlm:litertlm-android:0.19.1`）
 - 既定のモデル：[Qwen2.5-1.5B-Instruct](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct)（`Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm`、約1.6GB、Apache-2.0）。動かすときに約 2.2GB のメモリを使うので、メモリ 6GB 以上・空き 2.5GB 以上の端末で使います
+- モデルの入れ方：`.litertlm` を端末に置き（ダウンロードフォルダなど）、設定画面（キーワードとタグ）の「モデルを取り込む」で選ぶ。アプリはインターネットを使わない（#74）。「外す」でルールだけに戻せる
 - モデルの置き場所：端末の `Android/data/jp.mimimemo/files/models/`（`.litertlm` を1つ置く）
 
 ```sh
