@@ -161,6 +161,10 @@ class TodoAdapter(
         } else {
             b.root.setOnLongClickListener(null)
             b.root.isLongClickable = false
+            // 使い回した行に「期限を延ばす」の操作名を残さない（#133）
+            ViewCompat.replaceAccessibilityAction(
+                b.root, AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_LONG_CLICK, null, null,
+            )
         }
     }
 
