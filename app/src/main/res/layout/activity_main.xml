@@ -39,14 +39,17 @@
                     android:textColor="@color/due_urgent_fg"
                     android:textStyle="bold" />
 
+                <!-- 文が折り返さないよう、読み上げはアイコンだけのボタンにする（issue #35） -->
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/buttonSpeakReminder"
-                    style="@style/Widget.Material3.Button.TextButton.Icon"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="@string/action_speak"
-                    android:textColor="@color/due_urgent_fg"
+                    style="@style/Widget.Material3.Button.IconButton"
+                    android:layout_width="48dp"
+                    android:layout_height="48dp"
+                    android:contentDescription="@string/action_speak"
+                    android:padding="0dp"
                     app:icon="@drawable/ic_volume"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
                     app:iconTint="@color/due_urgent_fg" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
