@@ -4,6 +4,8 @@ import android.content.res.ColorStateList
 import android.graphics.Paint
 import android.view.LayoutInflater
 import android.view.View
+import androidx.core.view.ViewCompat
+import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.core.content.ContextCompat
@@ -151,6 +153,11 @@ class TodoAdapter(
                 longPress(todo, it)
                 true
             }
+            // 読み上げでは「期限を延ばす」と読ませる（#133）
+            ViewCompat.replaceAccessibilityAction(
+                b.root, AccessibilityNodeInfoCompat.AccessibilityActionCompat.ACTION_LONG_CLICK,
+                b.root.context.getString(R.string.postpone_action), null,
+            )
         } else {
             b.root.setOnLongClickListener(null)
             b.root.isLongClickable = false
