@@ -27,6 +27,7 @@ object CalendarExport {
             .putExtra(CalendarContract.Events.TITLE, title)
             .putExtra(CalendarContract.EXTRA_EVENT_ALL_DAY, true)
             .putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, allDayStartMillis(due))
-            .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, allDayStartMillis(due.plusDays(1)))
+            // 終わりも同じ日で渡す。翌日の0時を渡すと Google カレンダーは2日間の予定にする（実機 Pixel 7a で確認、#140）
+            .putExtra(CalendarContract.EXTRA_EVENT_END_TIME, allDayStartMillis(due))
             .apply { rrule(repeat)?.let { putExtra(CalendarContract.Events.RRULE, it) } }
 }
