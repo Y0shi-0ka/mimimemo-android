@@ -15,7 +15,21 @@ object TaskSummary {
 
     fun of(title: String): String {
         val original = title.trim()
-        var s = original.replace(PREFACE, "").trimStart(*SEPARATORS, 'の')
+        var s = original.replace(PREFACE, "").replace(FILLER, "").trimStart(*SEPARATORS, 'の')
+
+        // 言いかけの終わり（「〜なのと」「〜とか」）を落とし、義務の言い方（行かなきゃダメ）を言い切りにする
+        var prev: String
+        do {
+            prev = s
+            s = s.trimEnd(*SEPARATORS).replace(TRAILING_FRAGMENT, "")
+        } while (s != prev)
+        OBLIGATION.find(s)?.let { m ->
+            val stem = m.groupValues[1]
+            s = s.substring(0, m.range.first) + when (val c = stem.last()) {
+                'し' -> stem.dropLast(1) + "する"
+                else -> A_TO_U[c]?.let { stem.dropLast(1) + it } ?: (stem + "る")
+            }
+        }
 
         for ((pattern, replace) in ENDINGS) {
             val m = pattern.find(s) ?: continue
@@ -55,7 +69,21 @@ object TaskSummary {
 
     private val PREFACE = Regex("^(?:悪いんだけど|悪いけど|ごめん(?:ね)?|すみません|すいません|申し訳ないけど|できれば|なるべく)[、,\\s　]*")
 
-    private val REASON = Regex("(?:だから|から|ので|んだけど|けれども|けれど|けど)[、,\\s　]*")
+    /** 話の途中に入る言葉（えっと・なんか）。どこにあっても外す */
+    private val FILLER = Regex("(?:えっと|えーっと|えーと|ええと|あのー+|なんか)[、,\\s　]*")
+
+    /** 言いかけで終わった部分 */
+    private val TRAILING_FRAGMENT = Regex("(?:なのと|のと|とか|なの)$")
+
+    /** 義務の言い方。1つ目のかたまりは「なきゃ」の前の形（行か・出さ・し） */
+    private val OBLIGATION = Regex("([一-龯ぁ-ゖ]?[かがさたなばまらわし])(?:なきゃ|なくちゃ|ないと)(?:ダメ|だめ|いけない|ならない)$")
+
+    private val A_TO_U = mapOf(
+        'か' to "く", 'が' to "ぐ", 'さ' to "す", 'た' to "つ", 'な' to "ぬ",
+        'ば' to "ぶ", 'ま' to "む", 'ら' to "る", 'わ' to "う",
+    )
+
+    private val REASON =Regex("(?:だから|から|ので|んだけど|けれども|けれど|けど)[、,\\s　]*")
 
     /** 動作の前の「も」（名詞のあと、終わりまで短い） */
     private val MO_BEFORE_VERB = Regex("([一-龯ァ-ヶー])も(?=[^、]{1,6}$)")

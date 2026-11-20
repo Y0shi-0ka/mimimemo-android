@@ -30,6 +30,17 @@ class TaskSummaryTest {
     }
 
     @Test
+    fun realSpeechFillersAndFragments() {
+        // 実機で話した文から作られた題名（11/20）
+        assertEquals(
+            "金テスト行く",
+            TaskSummary.of("話で明日なんか色々とやらなきゃいけないとあった気がしてて、えっと金テスト行かなきゃダメなのとえっと"),
+        )
+        assertEquals("金テスト行く", TaskSummary.of("えっと金テスト行かなきゃダメなのとえっと"))
+        assertEquals("レポート出す", TaskSummary.of("なんかレポート出さなきゃいけない"))
+    }
+
+    @Test
     fun shortTitlesKeepTheirReason() {
         // 短いときは理由も残す（「準備をする」だけでは何の準備か分からない）
         assertEquals("発表なので準備をする", TaskSummary.of("発表なので準備をしておく"))

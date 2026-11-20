@@ -38,6 +38,28 @@ class TodoDbHelper(context: Context) :
     /** 版を上げても ToDo は消さない。足りない列だけ足す（#107） */
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) db.execSQL("ALTER TABLE $TABLE ADD COLUMN repeat TEXT")
+        // 版3は条件の誤りで何も縮めていなかったので、版4でもう一度かける
+        if (oldVersion < 4) summarizeLongTitles(db)
+    }
+
+    /**
+     * 要約（#144）より前に聞き取りから作られ、話し言葉のまま長くなった題名を縮める。
+     * 自分で打った ToDo（元の発言がないもの）と、20字以内の題名には触れない。元の発言は残る。
+     */
+    private fun summarizeLongTitles(db: SQLiteDatabase) {
+        // 文字数は SQL に直接書く（? で渡すと文字列になり、SQLite では数値より常に大きいとみなされて1件も当たらない）
+        db.rawQuery(
+            "SELECT id, title FROM $TABLE WHERE source_text IS NOT NULL AND length(title) > ${TaskSummary.MAX_LENGTH}",
+            null,
+        ).use { c ->
+            while (c.moveToNext()) {
+                val title = c.getString(1)
+                val summary = TaskSummary.of(title)
+                if (summary != title) {
+                    db.update(TABLE, ContentValues().apply { put("title", summary) }, "id = ?", arrayOf(c.getLong(0).toString()))
+                }
+            }
+        }
     }
 
     /**
@@ -125,7 +147,7 @@ class TodoDbHelper(context: Context) :
     companion object {
         private const val DB_NAME = "mimimemo.db"
         // 2：繰り返しの列（#107）
-        private const val DB_VERSION = 2
+        private const val DB_VERSION = 4
         private const val TABLE = "todos"
         private val DATE_TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
     }
