@@ -42,7 +42,7 @@ class TodoExtractor(
             if (result == null || result.title.isBlank()) return null
             val base = on
             return Todo(
-                title = result.title.trim(),
+                title = TaskSummary.of(result.title),
                 due = result.dueText?.let { parser.parse(it, base) } ?: parser.parse(text, base),
                 tag = result.tag?.takeIf { it.isNotBlank() } ?: guessTag(text),
                 sourceText = text,
@@ -105,8 +105,8 @@ class TodoExtractor(
         // 日付が見つかったときの範囲は、漢数字を直したあとの文での位置
         val title = makeTitle(match?.text ?: forDate, match?.range)
         return Todo(
-            // 「毎週」などは題名から外す（#107）
-            title = title.replace(REPEAT_WORD, "").trimStart(*SEPARATORS, 'に', 'は').ifBlank { title },
+            // 「毎週」などは題名から外す（#107）。話し言葉のままにせず、やることの要約にする（#144）
+            title = TaskSummary.of(title.replace(REPEAT_WORD, "").trimStart(*SEPARATORS, 'に', 'は').ifBlank { title }),
             // 毎日のものは、日付がなければ今日から
             due = match?.date ?: if (repeat == Repeat.DAILY) on else null,
             tag = guessTag(text),

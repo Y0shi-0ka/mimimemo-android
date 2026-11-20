@@ -37,7 +37,7 @@ class RecognizedSpeechTest {
         assertEquals("三人でスライドを作る", todo("三人でスライドを作っといて").title)
         assertNull(date("二人でやっといて"))
         assertNull(date("一日中かかった"))
-        assertEquals("二〇二六年の目標を決めておく", todo("二〇二六年の目標を決めておいて").title)
+        assertEquals("二〇二六年の目標を決める", todo("二〇二六年の目標を決めておいて").title)
     }
 
     @Test
@@ -58,7 +58,7 @@ class RecognizedSpeechTest {
         assertEquals("レポートを提出する", title("十一月二十日までにレポートを提出しておいてください"))
         assertEquals("スライドを作る", title("あのスライドを作っといてね"))
         assertEquals("次回教科書を持ってくる", title("じゃあ次回教科書を持ってきてください"))
-        assertEquals("実験のレポートを出しておく", title("それと実験のレポートを金曜までに出しておいて"))
+        assertEquals("実験のレポートを出す", title("それと実験のレポートを金曜までに出しておいて"))
     }
 
     @Test
@@ -103,7 +103,7 @@ class RecognizedSpeechTest {
     @Test
     fun leadingParticleAfterDateIsRemoved() {
         assertEquals("レポートを出す", todo("明日はレポートを出す").title)
-        assertEquals("発表なので準備をしておく", todo("来週月曜が発表なので準備をしておいて").title)
+        assertEquals("発表なので準備をする", todo("来週月曜が発表なので準備をしておいて").title)
         assertEquals("スライドを作る", todo("金曜にスライドを作っといて").title)
     }
 

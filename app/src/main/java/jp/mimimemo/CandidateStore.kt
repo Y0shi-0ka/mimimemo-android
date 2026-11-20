@@ -46,7 +46,8 @@ class CandidateStore(context: Context) {
                     val o = array.getJSONObject(i)
                     Todo(
                         id = o.getLong("id"),
-                        title = o.getString("title"),
+                        // 要約（#144）より前に保存した長い題名は、読み込むときに縮める
+                        title = o.getString("title").let { if (it.length > TaskSummary.MAX_LENGTH) TaskSummary.of(it) else it },
                         due = o.optString("due").takeIf { !o.isNull("due") && it.isNotEmpty() }?.let(LocalDate::parse),
                         tag = o.optString("tag", Todo.TAG_OTHER),
                         sourceText = o.optString("source").takeIf { !o.isNull("source") },
