@@ -13,7 +13,9 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent">
 
+        <!-- カードの高さに入らないときは CandidateStackView.fit が行数を詰める（#142） -->
         <LinearLayout
+            android:id="@+id/content"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:gravity="center_vertical"

@@ -88,6 +88,57 @@ class CandidateStackView @JvmOverloads constructor(
         b.textSource.isVisible = !todo.sourceText.isNullOrBlank()
         b.textSource.text = context.getString(R.string.source_quote, todo.sourceText.orEmpty())
         b.root.contentDescription = todo.title
+        fit(b, todo, width, height)
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        // 横向きにするとカードが低くなる。表示しているカードを詰め直す（レイアウトの途中なので次に回す）
+        post {
+            items.getOrNull(0)?.let { fit(front, it, w, h) }
+            items.getOrNull(1)?.let { fit(back, it, w, h) }
+        }
+    }
+
+    /**
+     * カードの高さに入るように、題名の行数と元の発言を詰める（#142）。
+     * 横向きではカードが低く、そのままだと上下がはみ出して文字の途中で切れる。
+     * 残す順は 題名 ＞ 期限・札 ＞ いつ聞いたか ＞ 元の発言。
+     */
+    private fun fit(b: ItemCandidateCardBinding, todo: Todo, w: Int, h: Int) {
+        if (w <= 0 || h <= 0) return
+        val c = b.content
+        val textWidth = w - c.paddingLeft - c.paddingRight
+        if (textWidth <= 0) return
+        val room = h - c.paddingTop - c.paddingBottom
+
+        // いったん全部出してから、入るまで削る。日本語は代替フォントで1行が lineHeight より高くなるので、実際に測る
+        b.textHeard.isVisible = true
+        b.textTitle.maxLines = TITLE_MAX_LINES
+        b.textSource.isVisible = !todo.sourceText.isNullOrBlank()
+        b.textSource.maxLines = SOURCE_MAX_LINES
+        while (contentHeight(c, textWidth) > room) {
+            when {
+                b.textSource.isVisible && b.textSource.maxLines > 1 -> b.textSource.maxLines -= 1
+                b.textSource.isVisible -> b.textSource.isVisible = false
+                b.textHeard.isVisible -> b.textHeard.isVisible = false
+                b.textTitle.maxLines > 1 -> b.textTitle.maxLines -= 1
+                else -> break
+            }
+        }
+    }
+
+    /** 中身を縦に並べたときの高さ（余白込み） */
+    private fun contentHeight(content: android.view.ViewGroup, textWidth: Int): Int {
+        var total = 0
+        for (i in 0 until content.childCount) {
+            val v = content.getChildAt(i)
+            if (!v.isVisible) continue
+            v.measure(MeasureSpec.makeMeasureSpec(textWidth, MeasureSpec.AT_MOST), MeasureSpec.UNSPECIFIED)
+            val lp = v.layoutParams as MarginLayoutParams
+            total += v.measuredHeight + lp.topMargin + lp.bottomMargin
+        }
+        return total
     }
 
     private fun resetFront() {
@@ -233,5 +284,7 @@ class CandidateStackView @JvmOverloads constructor(
         const val BACK_OFFSET_DP = 14f
         const val FLY_MS = 220L
         const val SPRING_MS = 260L
+        const val TITLE_MAX_LINES = 3
+        const val SOURCE_MAX_LINES = 3
     }
 }
