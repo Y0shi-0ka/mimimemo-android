@@ -58,10 +58,20 @@ class LocalLlm(context: Context) {
      * 読み込めるだけのメモリがあるか。足りないまま読み込むと、OS にアプリごと止められ、
      * 常時聞き取りも止まってしまう（2GB のエミュレータで確認、#68）。足りなければルールで判定する
      */
-    fun hasEnoughMemory(): Boolean {
-        val am = appContext.getSystemService(ActivityManager::class.java) ?: return false
+    fun hasEnoughMemory(): Boolean = backendsToTry().isNotEmpty()
+
+    /**
+     * 試す順の動かし方。GPU はメモリが少なくて済む（LFM3 mixed int4：Pixel 8a の GPU で約 0.9GB、CPU で約 2.0GB）ので先に試し、
+     * 使えなければ CPU にする。空きメモリが足りない動かし方は試さない（#150）
+     */
+    private fun backendsToTry(): List<String> {
+        val am = appContext.getSystemService(ActivityManager::class.java) ?: return emptyList()
         val info = ActivityManager.MemoryInfo().also { am.getMemoryInfo(it) }
-        return !info.lowMemory && info.totalMem >= MIN_TOTAL_MEMORY && info.availMem >= MIN_AVAILABLE_MEMORY
+        if (info.lowMemory || info.totalMem < MIN_TOTAL_MEMORY) return emptyList()
+        return listOfNotNull(
+            BACKEND_GPU.takeIf { info.availMem >= MIN_AVAILABLE_GPU },
+            BACKEND_CPU.takeIf { info.availMem >= MIN_AVAILABLE_CPU },
+        )
     }
 
     /**
@@ -71,7 +81,8 @@ class LocalLlm(context: Context) {
     suspend fun findTasks(sentences: List<String>): List<AiTaskPrompt.Task>? = withContext(Dispatchers.Default) {
         val file = modelFile() ?: return@withContext null
         if (sentences.isEmpty()) return@withContext emptyList()
-        if (!hasEnoughMemory()) {
+        val backends = backendsToTry()
+        if (backends.isEmpty()) {
             Log.d(TAG, "llm skipped: not enough memory")
             return@withContext null
         }
@@ -81,10 +92,23 @@ class LocalLlm(context: Context) {
                 Log.d(TAG, "llm skipped: model crashed before")
                 return@withContext null
             }
-            val started = System.currentTimeMillis()
             guard.begin(id)
-            runCatching {
-                Engine(EngineConfig(modelPath = file.path, backend = Backend.CPU(), cacheDir = cacheDirIfRoomy())).use { engine ->
+            var result: List<AiTaskPrompt.Task>? = null
+            for (backend in backends) {
+                result = run(file, backend, sentences)
+                if (result != null) break
+            }
+            guard.end()
+            result
+        }
+    }
+
+    /** 1つの動かし方で問う。読み込めない（GPU がないなど）・答えが読めないときは null */
+    private fun run(file: File, backend: String, sentences: List<String>): List<AiTaskPrompt.Task>? {
+        val started = System.currentTimeMillis()
+        val engineBackend = if (backend == BACKEND_GPU) Backend.GPU() else Backend.CPU()
+        return runCatching {
+                Engine(EngineConfig(modelPath = file.path, backend = engineBackend, cacheDir = cacheDirIfRoomy())).use { engine ->
                     engine.initialize()
                     val config = ConversationConfig(
                         systemInstruction = Contents.of(AiTaskPrompt.SYSTEM),
@@ -105,11 +129,10 @@ class LocalLlm(context: Context) {
                 }
             }.onSuccess {
                 // 文そのものは出さない（#17）
-                Log.d(TAG, "llm: sentences=${sentences.size} tasks=${it.size} ms=${System.currentTimeMillis() - started}")
+                Log.d(TAG, "llm: backend=$backend sentences=${sentences.size} tasks=${it.size} ms=${System.currentTimeMillis() - started}")
             }.onFailure {
-                Log.d(TAG, "llm failed: ${it.javaClass.simpleName}")
-            }.also { guard.end() }.getOrNull()
-        }
+                Log.d(TAG, "llm failed: backend=$backend ${it.javaClass.simpleName}")
+            }.getOrNull()
     }
 
     /**
@@ -138,9 +161,13 @@ class LocalLlm(context: Context) {
         const val CHUNK = 12
 
         /** AI を使う端末のメモリの下限と、読み込む時点で空いていてほしいメモリ */
-        // 既定のモデル（Qwen2.5-1.5B、q8）は、実機（Pixel 7a）で PSS 3.1GB まで使ってメモリ不足で止められた（#148）
+        // 前の既定（Qwen2.5-1.5B q8、CPU）は実機（Pixel 7a）で PSS 3.1GB まで使って止められた（#148）。
+        // 今の既定（LFM3-1.7B mixed int4）は GPU で約 0.9GB、CPU で約 2.0GB（モデルの説明の実測、#150）
         private const val MIN_TOTAL_MEMORY = 6L * 1024 * 1024 * 1024
-        private const val MIN_AVAILABLE_MEMORY = 3584L * 1024 * 1024
+        private const val MIN_AVAILABLE_GPU = 1536L * 1024 * 1024
+        private const val MIN_AVAILABLE_CPU = 2560L * 1024 * 1024
+        private const val BACKEND_GPU = "gpu"
+        private const val BACKEND_CPU = "cpu"
 
         /** LiteRT-LM で「キャッシュを使わない」を表す値 */
         private const val NO_CACHE = ":nocache"
