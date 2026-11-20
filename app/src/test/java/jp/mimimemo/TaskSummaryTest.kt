@@ -38,6 +38,9 @@ class TaskSummaryTest {
         )
         assertEquals("金テスト行く", TaskSummary.of("えっと金テスト行かなきゃダメなのとえっと"))
         assertEquals("レポート出す", TaskSummary.of("なんかレポート出さなきゃいけない"))
+        // 「見せ」「来」の形（#150、実機で AI の題名に残っていた）
+        assertEquals("実験ノートを先生に見せる", TaskSummary.of("実験ノートを先生に見せないといけない"))
+        assertEquals("早めに来る", TaskSummary.of("早めに来なきゃダメ"))
     }
 
     @Test

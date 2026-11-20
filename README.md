@@ -81,12 +81,14 @@
 5分ごとのまとめでは、ルールと端末内の小さな AI の両方で調べ、どちらかが拾った文を候補にします（#68）。会話は端末の外に出しません。AI のモデルがないとき・メモリが足りないときは、ルールだけで動きます。
 
 - 実行環境：LiteRT-LM（`com.google.ai.edge.litertlm:litertlm-android:0.19.1`）
-- 既定のモデル：[Qwen2.5-1.5B-Instruct](https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct)（`Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm`、約1.6GB、Apache-2.0）。動かすときに約 2.2GB のメモリを使うので、メモリ 6GB 以上・空き 2.5GB 以上の端末で使います
+- 既定のモデル：[LFM3-1.7B](https://huggingface.co/litert-community/LFM3-1.7B-LiteRT)（`LFM3-1.7B_mixed_int4_ekv2048.litertlm`、約1.44GB、LFM Open License v1.0、日本語対応）（#150）。まず GPU で動かし（約 0.9GB）、使えなければ CPU（約 2.0GB）。メモリ 6GB 以上で、空きが GPU は 1.5GB・CPU は 2.5GB 以上のときに使います
+- AI は聞き取りとは別のプロセスで動かします。メモリ不足で止められても聞き取りは続き、その回はルールだけで候補を出します（#148）
+- 前の既定は Qwen2.5-1.5B-Instruct（q8）。実機（Pixel 7a）では CPU で 3.1GB まで使い、メモリ不足でアプリごと止められた（#148）
 - モデルの入れ方：`.litertlm` を端末に置き（ダウンロードフォルダなど）、設定画面（キーワードとタグ）の「モデルを取り込む」で選ぶ。アプリはインターネットを使わない（#74）。「外す」でルールだけに戻せる
 - モデルの置き場所：端末の `Android/data/jp.mimimemo/files/models/`（`.litertlm` を1つ置く）
 
 ```sh
-curl -L -o model.litertlm https://huggingface.co/litert-community/Qwen2.5-1.5B-Instruct/resolve/main/Qwen2.5-1.5B-Instruct_multi-prefill-seq_q8_ekv4096.litertlm
+curl -L -o model.litertlm https://huggingface.co/litert-community/LFM3-1.7B-LiteRT/resolve/main/LFM3-1.7B_mixed_int4_ekv2048.litertlm
 adb shell mkdir -p /sdcard/Android/data/jp.mimimemo/files/models
 adb push model.litertlm /sdcard/Android/data/jp.mimimemo/files/models/
 ```

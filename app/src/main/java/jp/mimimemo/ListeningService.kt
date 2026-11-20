@@ -50,7 +50,8 @@ class ListeningService : Service(), SpeechController.ResultListener {
 
     private lateinit var speech: SpeechController
     private lateinit var extractor: TodoExtractor
-    private lateinit var llm: LocalLlm
+    /** 端末内 AI は別プロセスで動かす（#148）。止められても聞き取りは続く */
+    private lateinit var llm: LlmClient
     private val parser = DateParser()
     private val batch = SentenceBatch()
     private val batchLineIds = mutableListOf<Long>()
@@ -131,7 +132,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
         ListeningHub.onStatusChanged = { ListeningTileService.refresh(app) }
         val keywords = KeywordStore(this)
         extractor = TodoExtractor(keywords = keywords::load, ai = UnavailableLocalAiClient, customTags = TagStore(this)::load)
-        llm = LocalLlm(this)
+        llm = LlmClient(this)
         speech = SpeechController(
             this,
             this,
