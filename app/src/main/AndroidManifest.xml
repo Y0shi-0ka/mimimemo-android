@@ -89,6 +89,11 @@
             android:name=".ListeningService"
             android:exported="false"
             android:foregroundServiceType="microphone" />
+        <!-- 端末内 AI は別プロセスで動かす。メモリ不足で止められても聞き取りは止まらない（#148） -->
+        <service
+            android:name=".LlmService"
+            android:exported="false"
+            android:process=":llm" />
         <!-- クイック設定の「ミミメモ」タイル（#85） -->
         <service
             android:name=".ListeningTileService"

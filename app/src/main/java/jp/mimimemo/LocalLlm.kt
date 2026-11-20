@@ -51,6 +51,9 @@ class LocalLlm(context: Context) {
     /** モデルを入れ直した・外したら呼ぶ */
     fun resetGuard() = guard.reset()
 
+    /** 前回の読み込みはメモリ不足で止められただけなので、そのモデルを「使わない」にしない（#148） */
+    fun forgiveInterruptedLoad() = guard.end()
+
     /**
      * 読み込めるだけのメモリがあるか。足りないまま読み込むと、OS にアプリごと止められ、
      * 常時聞き取りも止まってしまう（2GB のエミュレータで確認、#68）。足りなければルールで判定する
@@ -135,9 +138,9 @@ class LocalLlm(context: Context) {
         const val CHUNK = 12
 
         /** AI を使う端末のメモリの下限と、読み込む時点で空いていてほしいメモリ */
-        // 既定のモデル（Qwen2.5-1.5B、q8）は動かすときに約 2.2GB 使う
+        // 既定のモデル（Qwen2.5-1.5B、q8）は、実機（Pixel 7a）で PSS 3.1GB まで使ってメモリ不足で止められた（#148）
         private const val MIN_TOTAL_MEMORY = 6L * 1024 * 1024 * 1024
-        private const val MIN_AVAILABLE_MEMORY = 2560L * 1024 * 1024
+        private const val MIN_AVAILABLE_MEMORY = 3584L * 1024 * 1024
 
         /** LiteRT-LM で「キャッシュを使わない」を表す値 */
         private const val NO_CACHE = ":nocache"
