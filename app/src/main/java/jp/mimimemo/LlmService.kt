@@ -48,6 +48,9 @@ class LlmService : Service() {
 
     override fun onDestroy() {
         scope.cancel()
+        // ここに来るのは頼んだ側が切り離したとき（答えた・時間切れ）。落ちたわけではないので、
+        // 途中で止めても「読み込みで落ちたモデル」（#120）の印は残さない。ネイティブの異常終了はここを通らない
+        LocalLlm(this).forgiveInterruptedLoad()
         super.onDestroy()
         // AI のメモリを確実に返す（キャッシュとして残さない）
         Process.killProcess(Process.myPid())
