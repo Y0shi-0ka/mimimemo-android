@@ -50,8 +50,11 @@ class LlmClient(context: Context) {
                 // AI のプロセスが止められたら（メモリ不足など）、その回は AI なしで続ける
                 runCatching {
                     binder.linkToDeath({
-                        Log.d(TAG, "llm process died; using rules only")
-                        finish(null)
+                        // 答えを受け取ったあとは、こちらから終わらせたので何もしない
+                        if (!done.get()) {
+                            Log.d(TAG, "llm process died; using rules only")
+                            finish(null)
+                        }
                     }, 0)
                 }.onFailure { finish(null); return }
                 val msg = Message.obtain(null, LlmService.MSG_FIND).apply {
