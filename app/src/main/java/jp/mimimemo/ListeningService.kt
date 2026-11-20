@@ -13,11 +13,18 @@ import android.content.IntentFilter
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.BatteryManager
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
@@ -66,6 +73,54 @@ class ListeningService : Service(), SpeechController.ResultListener {
     }
     private var batteryReceiverRegistered = false
 
+    /**
+     * 振ったら今すぐまとめる（#146）。画面を開いてボタンを押さなくてよいように。
+     * 電池のため、センサーはまとめ待ちの文があるときだけ動かす。
+     */
+    private val shake = ShakeDetector()
+    private var shakeRegistered = false
+    private val shakeListener = object : SensorEventListener {
+        override fun onSensorChanged(event: SensorEvent) {
+            val v = event.values
+            if (shake.onAcceleration(event.timestamp / 1_000_000, v[0], v[1], v[2]) && batch.size > 0) {
+                Log.d(TAG, "shake: flush ${batch.size}")
+                buzz()
+                flush()
+            }
+        }
+
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+    }
+
+    private fun watchShake(on: Boolean) {
+        if (on == shakeRegistered) return
+        val sensors = getSystemService(SensorManager::class.java) ?: return
+        if (on) {
+            val accel = sensors.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) ?: return
+            shakeRegistered = sensors.registerListener(shakeListener, accel, SensorManager.SENSOR_DELAY_UI)
+        } else {
+            sensors.unregisterListener(shakeListener)
+            shakeRegistered = false
+        }
+    }
+
+    /** 振ったのが伝わったことを、画面を見なくても分かるように短く震わせる */
+    private fun buzz() {
+        val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getSystemService(VibratorManager::class.java)?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            getSystemService(Vibrator::class.java)
+        } ?: return
+        vibrator.vibrate(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                VibrationEffect.createPredefined(VibrationEffect.EFFECT_DOUBLE_CLICK)
+            } else {
+                VibrationEffect.createOneShot(BUZZ_MS, VibrationEffect.DEFAULT_AMPLITUDE)
+            },
+        )
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -109,6 +164,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
 
     override fun onDestroy() {
         if (batteryReceiverRegistered) unregisterReceiver(batteryReceiver)
+        watchShake(false)
         handler.removeCallbacksAndMessages(null)
         speech.stop()
         scope.cancel()
@@ -254,10 +310,12 @@ class ListeningService : Service(), SpeechController.ResultListener {
         batchLineIds += id
         if (batch.size == 1) handler.postDelayed(flushBatch, BATCH_MS)
         ListeningHub.setPending(batch.size)
+        watchShake(true)
     }
 
     private fun flush(then: () -> Unit = {}) {
         handler.removeCallbacks(flushBatch)
+        watchShake(false)
         val (context, sentences) = batch.drain()
         val ids = batchLineIds.toList()
         batchLineIds.clear()
@@ -303,7 +361,8 @@ class ListeningService : Service(), SpeechController.ResultListener {
             val rule = byRule[i]
             val task = byAi[i] ?: return@mapIndexed rule
             Todo(
-                title = task.title,
+                // AI の題名も、ルールと同じ要約の形にそろえる（#144）
+                title = TaskSummary.of(task.title),
                 due = task.dueText?.let { parser.parse(it, heard.on) } ?: rule?.due ?: parser.parse(extractor.withoutRepeat(heard.text), heard.on),
                 // 自分で足したタグ（科目名）が文中にあれば、AI のタグより優先する（#10）
                 tag = extractor.customTag(heard.text) ?: task.tag ?: rule?.tag ?: extractor.guessTag(heard.text),
@@ -406,6 +465,7 @@ class ListeningService : Service(), SpeechController.ResultListener {
 
         /** 聞き取った文をためておき、この間隔でまとめて調べる（#36） */
         private const val BATCH_MS = 5 * 60_000L
+        private const val BUZZ_MS = 60L
 
         /** 画面（前面にあるとき）から聞き取りを始める */
         fun start(context: Context, debugSentences: Array<String>? = null) {

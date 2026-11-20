@@ -10,6 +10,8 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- 朝の期限のお知らせを、再起動のあとも予約し直す（#100） -->
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- 振ってまとめたことを震えて知らせる（#146） -->
+    <uses-permission android:name="android.permission.VIBRATE" />
 
     <!-- Android 11 以降で音声認識サービス・読み上げエンジンを見つけるために必要 -->
     <queries>
